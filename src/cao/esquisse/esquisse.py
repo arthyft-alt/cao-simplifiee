@@ -20,6 +20,7 @@ cotes s'ajouteront à l'étape 2.2.
 import math
 import re
 from dataclasses import asdict, dataclass
+from enum import Enum
 from itertools import pairwise
 from typing import Any
 
@@ -72,6 +73,33 @@ class Arc:
     construction: bool = False
 
 
+class GenreRelation(Enum):
+    """Relations géométriques (REL-01 à REL-05)."""
+
+    HORIZONTALE = "horizontale"  # 1 ligne
+    VERTICALE = "verticale"  # 1 ligne
+    COINCIDENTE = "coincidente"  # point + point, ou point + courbe (point sur la courbe)
+    POINT_MILIEU = "point_milieu"  # point + ligne
+    FIXE = "fixe"  # 1 point
+    PARALLELE = "parallele"  # 2 lignes
+    PERPENDICULAIRE = "perpendiculaire"  # 2 lignes
+    COLINEAIRE = "colineaire"  # 2 lignes
+    TANGENTE = "tangente"  # ligne + arc/cercle, ou arc/cercle + arc/cercle
+    CONCENTRIQUE = "concentrique"  # 2 arcs/cercles
+    EGALE = "egale"  # 2 lignes (longueurs) ou 2 arcs/cercles (rayons)
+
+
+@dataclass
+class Relation:
+    id: str
+    genre: GenreRelation
+    entites: list[str]
+
+
+class RelationImpossible(ValueError):
+    """Les entités choisies ne conviennent pas à cette relation (message pour l'utilisateur)."""
+
+
 Entite = Point | Ligne | Cercle | Arc
 Courbe = Ligne | Cercle | Arc
 # Un point se désigne par son identifiant (point existant, partagé) ou par ses coordonnées.
@@ -91,7 +119,8 @@ class Esquisse:
         self.nom = nom
         self.plan = plan  # « face », « dessus », « droite » ou référence d'une face (lot 3)
         self.entites: dict[str, Entite] = {}
-        self._compteurs = dict.fromkeys(_PREFIXES.values(), 0)
+        self.relations: dict[str, Relation] = {}
+        self._compteurs = dict.fromkeys([*_PREFIXES.values(), "R"], 0)
 
     # --- Accès ---
 
@@ -287,6 +316,53 @@ class Esquisse:
             return self._ajouter_arc(c, segment.fin, nouveau, construction)
         return self._ajouter_arc(c, nouveau, segment.fin, construction)
 
+    # --- Relations (REL-01 à REL-05) ---
+
+    def genre_entite(self, identifiant: str) -> str:
+        """« point », « ligne » ou « courbe » (cercle ou arc)."""
+        entite = self[identifiant]
+        if isinstance(entite, Point):
+            return "point"
+        if isinstance(entite, Ligne):
+            return "ligne"
+        return "courbe"
+
+    def ajouter_relation(self, genre: GenreRelation, *entites: str) -> str:
+        """Ajoute une relation après avoir vérifié que les entités conviennent.
+
+        L'ordre des entités n'a pas d'importance (un point est toujours rangé en
+        premier). Une relation identique déjà présente n'est pas ajoutée deux
+        fois : son identifiant est renvoyé.
+        """
+        if len(set(entites)) != len(entites):
+            raise RelationImpossible("Choisissez des entités différentes.")
+        genres = tuple(sorted(self.genre_entite(e) for e in entites))
+        if genres not in _COMBINAISONS[genre]:
+            raise RelationImpossible(_message_refus(genre))
+        rangees = sorted(entites, key=lambda e: 0 if self.genre_entite(e) == "point" else 1)
+        for relation in self.relations.values():
+            if relation.genre == genre and sorted(relation.entites) == sorted(rangees):
+                return relation.id
+        self._compteurs["R"] += 1
+        identifiant = f"R{self._compteurs['R']}"
+        self.relations[identifiant] = Relation(identifiant, genre, rangees)
+        return identifiant
+
+    def relations_de(self, identifiant: str) -> list[str]:
+        """Relations qui concernent une entité."""
+        return [r.id for r in self.relations.values() if identifiant in r.entites]
+
+    def supprimer_relation(self, identifiant: str) -> None:
+        if identifiant not in self.relations:
+            raise EntiteInconnue(identifiant)
+        del self.relations[identifiant]
+
+    def _retirer_relations_de(self, identifiant: str) -> list[str]:
+        retirees = self.relations_de(identifiant)
+        for relation in retirees:
+            del self.relations[relation]
+        return retirees
+
     # --- Modification ---
 
     def basculer_construction(self, identifiant: str) -> None:
@@ -305,7 +381,8 @@ class Esquisse:
         courbe supprime ses points devenus inutiles (non partagés).
         """
         entite = self[identifiant]
-        supprimes: list[str] = []
+        # Une relation sans son entité n'a plus de sens : elle part avec elle.
+        supprimes: list[str] = self._retirer_relations_de(identifiant)
         if isinstance(entite, Point):
             for courbe in self.utilisateurs(identifiant):
                 supprimes += self.supprimer(courbe)
@@ -325,6 +402,7 @@ class Esquisse:
         retires = []
         for identifiant in dict.fromkeys(identifiants):
             if identifiant in self.entites and not self.utilisateurs(identifiant):
+                retires += self._retirer_relations_de(identifiant)
                 del self.entites[identifiant]
                 retires.append(identifiant)
         return retires
@@ -338,6 +416,10 @@ class Esquisse:
             "entites": [
                 {"genre": _NOMS_GENRES[type(e)], **asdict(e)} for e in self.entites.values()
             ],
+            "relations": [
+                {"id": r.id, "genre": r.genre.value, "entites": list(r.entites)}
+                for r in self.relations.values()
+            ],
         }
 
     @classmethod
@@ -350,4 +432,43 @@ class Esquisse:
             esquisse.entites[entite.id] = entite
             prefixe, numero = re.fullmatch(r"([A-Z]+)(\d+)", entite.id).groups()  # type: ignore[union-attr]
             esquisse._compteurs[prefixe] = max(esquisse._compteurs[prefixe], int(numero))
+        for brut in donnees.get("relations", []):
+            relation = Relation(brut["id"], GenreRelation(brut["genre"]), list(brut["entites"]))
+            esquisse.relations[relation.id] = relation
+            esquisse._compteurs["R"] = max(esquisse._compteurs["R"], int(relation.id[1:]))
         return esquisse
+
+
+# Combinaisons d'entités acceptées par chaque relation (genres triés par ordre alphabétique).
+_COMBINAISONS: dict[GenreRelation, set[tuple[str, ...]]] = {
+    GenreRelation.HORIZONTALE: {("ligne",)},
+    GenreRelation.VERTICALE: {("ligne",)},
+    GenreRelation.COINCIDENTE: {("point", "point"), ("ligne", "point"), ("courbe", "point")},
+    GenreRelation.POINT_MILIEU: {("ligne", "point")},
+    GenreRelation.FIXE: {("point",)},
+    GenreRelation.PARALLELE: {("ligne", "ligne")},
+    GenreRelation.PERPENDICULAIRE: {("ligne", "ligne")},
+    GenreRelation.COLINEAIRE: {("ligne", "ligne")},
+    GenreRelation.TANGENTE: {("courbe", "ligne"), ("courbe", "courbe")},
+    GenreRelation.CONCENTRIQUE: {("courbe", "courbe")},
+    GenreRelation.EGALE: {("ligne", "ligne"), ("courbe", "courbe")},
+}
+
+_ATTENDU: dict[GenreRelation, str] = {
+    GenreRelation.HORIZONTALE: "une ligne",
+    GenreRelation.VERTICALE: "une ligne",
+    GenreRelation.COINCIDENTE: "deux points, ou un point et une courbe",
+    GenreRelation.POINT_MILIEU: "un point et une ligne",
+    GenreRelation.FIXE: "un point",
+    GenreRelation.PARALLELE: "deux lignes",
+    GenreRelation.PERPENDICULAIRE: "deux lignes",
+    GenreRelation.COLINEAIRE: "deux lignes",
+    GenreRelation.TANGENTE: "une ligne et un arc ou cercle, ou deux arcs ou cercles",
+    GenreRelation.CONCENTRIQUE: "deux arcs ou cercles",
+    GenreRelation.EGALE: "deux lignes, ou deux arcs ou cercles",
+}
+
+
+def _message_refus(genre: GenreRelation) -> str:
+    nom = genre.value.replace("_", " ")
+    return f"La relation « {nom} » demande {_ATTENDU[genre]}."

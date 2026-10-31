@@ -71,7 +71,10 @@ src/cao/
 ├── esquisse/
 │   ├── geometrie.py  calculs plans : cercle par 3 points, arc tangent, rectangles (sans dépendance)
 │   └── esquisse.py   modèle d'esquisse : points P1…, lignes L1…, cercles C1…, arcs A1… ;
-│                     les courbes désignent des points (partagés = contour relié)
+│                     les courbes désignent des points (partagés = contour relié) ;
+│                     relations R1… (REL-01 à 05) vérifiées à l'ajout
+│   └── solveur.py    pont vers python-solvespace : résout, recopie, degrés de liberté,
+│                     relations en conflit (voir ses particularités en tête du fichier)
 ├── document/
 │   ├── historique.py  annuler / rétablir : Commande, CommandeGroupee, PileAnnulation (sans Qt)
 │   └── document.py    Document (type, nom, historique) ; CommandeRenommer
