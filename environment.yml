@@ -1,0 +1,15 @@
+# Environnement conda reproductible du projet CAO.
+# Recréer avec : conda env create -f environment.yml
+name: cao
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pythonocc-core=8.0
+  - pyside6=6.11
+  - pytest
+  - pip
+  - pip:
+      - python-solvespace==3.0.8
+      - ruff==0.17.3
+      - mypy==2.4.1

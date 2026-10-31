@@ -1,0 +1,5 @@
+{
+  "python.defaultInterpreterPath": "${env:USERPROFILE}\miniforge3\envs\cao\python.exe",
+  "python.terminal.activateEnvironment": true,
+  "files.eol": "\n"
+}
