@@ -1,5 +1,7 @@
 # CAO simplifiée
 
+[![Tests](https://github.com/arthyft-alt/cao-simplifiee/actions/workflows/tests.yml/badge.svg)](https://github.com/arthyft-alt/cao-simplifiee/actions/workflows/tests.yml)
+
 Modeleur 3D paramétrique simplifié, inspiré de SolidWorks : pièce, assemblage, mise en plan.
 Logiciel libre (GPL 3), hors ligne, pour Windows et Linux.
 
