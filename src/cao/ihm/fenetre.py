@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Protocol
 
 from PySide6.QtCore import QStandardPaths, Qt, Signal
-from PySide6.QtGui import QAction, QCloseEvent, QGuiApplication, QKeySequence
+from PySide6.QtGui import QAction, QCloseEvent, QCursor, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -41,17 +41,21 @@ from PySide6.QtWidgets import (
 )
 
 from cao.document.document import Document, NomInvalide
+from cao.esquisse.outils import OUTILS
+from cao.esquisse.plans import PLANS, plan_par_libelle
 from cao.fichiers import format_natif
 from cao.fichiers.types_documents import INFOS, TypeDocument
 from cao.ihm import textes
 from cao.ihm.arbre import ICONE_DOCUMENT, PanneauGauche
 from cao.ihm.feuille import FeuilleDessin
 from cao.ihm.icones import icone
+from cao.ihm.mode_esquisse import ModeEsquisse
 from cao.ihm.ruban import BarreAffichage, Ruban
 from cao.ihm.theme import appliquer_theme
 from cao.ihm.vue3d import Vue3D
 from cao.noyau.affichage import FiltreSelection, ModeRendu, VueStandard
 from cao.noyau.mesure import Forme, formater, mesurer
+from cao.piece.piece import Piece
 
 DUREE_MESSAGE_MS = 4000
 HAUTEUR_PETIT_ECRAN = 800  # pixels utiles : en dessous, ruban sans grandes icônes
@@ -152,6 +156,10 @@ class FenetreDocument(QMainWindow):
         if isinstance(self.zone_graphique, Vue3D):
             self.brancher_commandes_vue(self.zone_graphique)
             self.zone_graphique.selection_changee.connect(self.selection_changee)
+        self.consigne_courante = ""
+        self.mode_esquisse: ModeEsquisse | None = None
+        if self.type_document == TypeDocument.PIECE:
+            self._brancher_mode_esquisse()
         self._dimensionner_selon_ecran()
 
     def _dimensionner_selon_ecran(self) -> None:
@@ -277,8 +285,8 @@ class FenetreDocument(QMainWindow):
         barre.messageChanged.connect(self._remettre_astuce)
 
     def _remettre_astuce(self, message: str) -> None:
-        if not message:
-            self.statusBar().showMessage(self.astuce)
+        if not message:  # un message temporaire vient de s'effacer
+            self.statusBar().showMessage(self.consigne_courante or self.astuce)
 
     def brancher_commandes_vue(self, vue: CommandesVue) -> None:
         """Relie les commandes de vue et de rendu (IHM-02, IHM-03) à la vue 3D."""
@@ -307,6 +315,115 @@ class FenetreDocument(QMainWindow):
         self.pastille_mesure.setText("   ".join(formater(v) for v in valeurs))
         self.pastille_mesure.setVisible(bool(valeurs))
         self.panneau_gauche.mesure.afficher(valeurs, len(formes))
+
+    # --- Mode esquisse (étape 2.4) ---
+
+    def _brancher_mode_esquisse(self) -> None:
+        vue = self.zone_graphique if isinstance(self.zone_graphique, Vue3D) else None
+        mode = ModeEsquisse(self.document, vue)
+        self.mode_esquisse = mode
+        self.commandes["esquisse"] = self.basculer_esquisse
+        for nom in OUTILS:
+            self.commandes[f"esquisse_{nom}"] = partial(self.outil_esquisse, nom)
+        mode.actif_change.connect(self._mode_esquisse_change)
+        mode.etat_change.connect(self.pastilles[1].setText)
+        mode.consigne.connect(self._afficher_consigne)
+        mode.message.connect(lambda m: self.statusBar().showMessage(m, DUREE_MESSAGE_MS))
+        mode.esquisses_changees.connect(self._rafraichir_arbre_esquisses)
+        self.panneau_gauche.arbre.esquisse_ouverte.connect(self.ouvrir_esquisse)
+        if vue is not None:
+            vue.intercepteur = mode
+            vue.initialisee.connect(mode.redessiner)
+
+        # Bouton « Quitter l'esquisse » au-dessus de la vue (ESQ-02), visible en esquisse.
+        self.action_quitter_esquisse = QAction(icone("valider"), textes.QUITTER_ESQUISSE, self)
+        self.action_quitter_esquisse.setToolTip(textes.QUITTER_ESQUISSE_INFO)
+        self.action_quitter_esquisse.triggered.connect(mode.quitter)
+        self.action_quitter_esquisse.setVisible(False)
+        if self.barre_affichage is not None:
+            premiere = self.barre_affichage.actions()[0]
+            self.barre_affichage.insertAction(premiere, self.action_quitter_esquisse)
+            bouton = self.barre_affichage.widgetForAction(self.action_quitter_esquisse)
+            if isinstance(bouton, QToolButton):
+                bouton.setObjectName("bouton_quitter_esquisse")
+                bouton.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+
+        # Échap et Suppr, actifs quel que soit l'endroit où se trouve le curseur.
+        self.action_echap = QAction(self)
+        self.action_echap.setShortcut(QKeySequence(Qt.Key.Key_Escape))
+        self.action_echap.triggered.connect(mode.echap)
+        self.action_supprimer = QAction(self)
+        self.action_supprimer.setShortcut(QKeySequence(QKeySequence.StandardKey.Delete))
+        self.action_supprimer.triggered.connect(self.supprimer_selection)
+        self.addActions([self.action_echap, self.action_supprimer])
+        self._rafraichir_arbre_esquisses()
+
+    def plan_pour_esquisse(self) -> str | None:
+        """Plan sélectionné dans l'arbre, sinon demandé à l'utilisateur."""
+        libelle = self.panneau_gauche.arbre.plan_selectionne()
+        plan = plan_par_libelle(libelle) if libelle else None
+        return plan.nom if plan is not None else self.choisir_plan()
+
+    def choisir_plan(self) -> str | None:
+        """Petit menu sous la souris : Plan de face / de dessus / de droite."""
+        menu = QMenu(textes.CHOISIR_PLAN, self)
+        menu.setToolTipsVisible(True)
+        titre = menu.addAction(textes.CHOISIR_PLAN)
+        titre.setEnabled(False)
+        choix = {menu.addAction(icone("plan"), plan.libelle): nom for nom, plan in PLANS.items()}
+        action = menu.exec(QCursor.pos())
+        return choix.get(action) if action is not None else None
+
+    def basculer_esquisse(self) -> None:
+        """Bouton Esquisse : crée une esquisse sur un plan, ou quitte celle qui est ouverte."""
+        assert self.mode_esquisse is not None
+        if self.mode_esquisse.actif:
+            self.mode_esquisse.quitter()
+            return
+        plan = self.plan_pour_esquisse()
+        if plan is not None:
+            self.mode_esquisse.entrer(plan)
+
+    def outil_esquisse(self, nom: str) -> None:
+        """Ligne, Rectangle… : ouvre d'abord une esquisse si besoin (comme SolidWorks)."""
+        assert self.mode_esquisse is not None
+        if not self.mode_esquisse.actif:
+            plan = self.plan_pour_esquisse()
+            if plan is None:
+                return
+            self.mode_esquisse.entrer(plan)
+        self.mode_esquisse.choisir_outil(nom)
+
+    def ouvrir_esquisse(self, nom: str) -> None:
+        """Double-clic dans l'arbre : rouvre l'esquisse pour la modifier (ESQ-03)."""
+        assert self.mode_esquisse is not None
+        piece = self.document.modele
+        assert isinstance(piece, Piece)
+        self.mode_esquisse.entrer(esquisse=piece.esquisse(nom))
+
+    def supprimer_selection(self) -> None:
+        if self.mode_esquisse is not None and self.mode_esquisse.actif:
+            ids = self.mode_esquisse.entites_selectionnees(list(self.selection))
+            self.mode_esquisse.supprimer(ids)
+
+    def _mode_esquisse_change(self, actif: bool) -> None:
+        self.action_quitter_esquisse.setVisible(actif)
+        if actif:
+            self.ruban.setCurrentIndex(0)  # onglet Esquisse
+        self._rafraichir_arbre_esquisses()
+
+    def _afficher_consigne(self, texte: str) -> None:
+        self.consigne_courante = texte
+        self.statusBar().showMessage(texte or self.astuce)
+
+    def _rafraichir_arbre_esquisses(self) -> None:
+        piece = self.document.modele
+        if not isinstance(piece, Piece):
+            return
+        ouverte = None
+        if self.mode_esquisse is not None and self.mode_esquisse.esquisse is not None:
+            ouverte = self.mode_esquisse.esquisse.nom
+        self.panneau_gauche.arbre.afficher_esquisses([e.nom for e in piece.esquisses], ouverte)
 
     def executer_commande(self, commande: str, nom_outil: str) -> None:
         """Exécute la commande d'un outil, ou annonce qu'elle n'est pas encore programmée."""

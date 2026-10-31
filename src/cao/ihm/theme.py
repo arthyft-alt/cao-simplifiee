@@ -123,6 +123,10 @@ QToolButton#bouton_filtre {{ padding: 3px 4px; }}
 QWidget#coin_fichier {{ background: {c["surface"]}; }}
 QToolButton#bouton_historique {{ padding: 3px; margin: 3px 0; }}
 
+QToolButton#bouton_quitter_esquisse {{ background: {c["accent"]}; color: #ffffff;
+        font-weight: 600; border-radius: 6px; padding: 3px 10px; margin-right: 12px; }}
+QToolButton#bouton_quitter_esquisse:hover {{ background: {c["accent_fonce"]}; }}
+
 QToolTip {{ background: {c["texte"]}; color: #ffffff; border: none; padding: 6px 8px;
         border-radius: 6px; }}
 """

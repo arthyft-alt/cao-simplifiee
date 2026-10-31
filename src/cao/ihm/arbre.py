@@ -34,6 +34,7 @@ class ArbreConstruction(QTreeWidget):
     """
 
     nom_document_saisi = Signal(str)  # nouveau nom tapé par l'utilisateur
+    esquisse_ouverte = Signal(str)  # double-clic sur une esquisse : son nom
 
     def __init__(
         self, nom_document: str, type_document: TypeDocument, parent: QWidget | None = None
@@ -51,6 +52,8 @@ class ArbreConstruction(QTreeWidget):
             QTreeWidget.EditTrigger.DoubleClicked | QTreeWidget.EditTrigger.EditKeyPressed
         )
         self.itemChanged.connect(self._element_modifie)
+        self.itemDoubleClicked.connect(self._double_clic)
+        self.elements_esquisses: list[QTreeWidgetItem] = []
 
         if type_document == TypeDocument.MISE_EN_PLAN:
             QTreeWidgetItem(self.racine, [textes.ARBRE_FEUILLE]).setIcon(0, icone("feuille"))
@@ -62,6 +65,32 @@ class ArbreConstruction(QTreeWidget):
                 dossier = QTreeWidgetItem(self.racine, [textes.ARBRE_CONTRAINTES])
                 dossier.setIcon(0, icone("dossier"))
         self.expandAll()
+
+    def afficher_esquisses(self, noms: list[str], ouverte: str | None = None) -> None:
+        """Esquisses de la pièce, sous l'origine ; celle en cours d'édition en gras."""
+        for element in self.elements_esquisses:
+            self.racine.removeChild(element)
+        self.elements_esquisses = []
+        for nom in noms:
+            element = QTreeWidgetItem(self.racine, [nom])
+            element.setIcon(0, icone("esquisse"))
+            element.setToolTip(0, textes.ESQUISSE_ARBRE_ASTUCE)
+            element.setData(0, Qt.ItemDataRole.UserRole, "esquisse")
+            police = element.font(0)
+            police.setBold(nom == ouverte)
+            element.setFont(0, police)
+            self.elements_esquisses.append(element)
+
+    def plan_selectionne(self) -> str | None:
+        """Libellé du plan sélectionné dans l'arbre (« Plan de face »…), ou None."""
+        element = self.currentItem()
+        if element is not None and element.isSelected() and element.text(0) in textes.ARBRE_PLANS:
+            return element.text(0)
+        return None
+
+    def _double_clic(self, element: QTreeWidgetItem, _colonne: int) -> None:
+        if element.data(0, Qt.ItemDataRole.UserRole) == "esquisse":
+            self.esquisse_ouverte.emit(element.text(0))
 
     def _element_modifie(self, element: QTreeWidgetItem, _colonne: int) -> None:
         if element is self.racine:

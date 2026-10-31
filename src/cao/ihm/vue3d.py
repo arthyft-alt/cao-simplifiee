@@ -13,7 +13,7 @@ Les calculs de vue sont faits par cao.noyau.affichage ; ce module ne gère
 que les événements Qt.
 """
 
-from typing import Any
+from typing import Any, Protocol
 
 from OCC.Display.backend import load_backend
 
@@ -33,6 +33,15 @@ FACTEUR_ZOOM = 1.2
 SEUIL_CLIC_PX = 4  # en dessous de ce déplacement, un appui-relâché est un clic
 
 
+class Intercepteur(Protocol):
+    """Mode qui reçoit la souris et le clavier avant la vue (positions en pixels réels)."""
+
+    def clic_ecran(self, x: int, y: int) -> bool: ...
+    def mouvement_ecran(self, x: int, y: int) -> None: ...
+    def terminer_trace(self) -> None: ...
+    def touche(self, cle: int) -> bool: ...
+
+
 class Vue3D(qtDisplay.qtViewer3d):
     """Visualiseur 3D avec la navigation façon SolidWorks."""
 
@@ -45,6 +54,9 @@ class Vue3D(qtDisplay.qtViewer3d):
 
     # Émis à chaque changement de sélection, avec la liste des formes sélectionnées.
     selection_changee = Signal(list)
+    initialisee = Signal()  # la vue OpenGL est prête : on peut afficher
+    # Mode qui intercepte la souris et le clavier (le mode esquisse), ou None.
+    intercepteur: "Intercepteur | None" = None
 
     def InitDriver(self) -> None:
         """Crée le contexte OpenGL puis applique l'apparence du logiciel."""
@@ -61,14 +73,26 @@ class Vue3D(qtDisplay.qtViewer3d):
         self.filtre = FiltreSelection.TOUT
         noyau_affichage.appliquer_mode_rendu(affichage.Context, affichage.View, self.mode_rendu)
         noyau_affichage.orienter(affichage.View, VueStandard.ISOMETRIQUE)
+        noyau_affichage.centrer_sur_origine(affichage.View)  # scène vide : cadrage raisonnable
         # Touches de pythonocc remplacées par celles du logiciel.
         self._key_map = {ord("F"): self.ajuster}
+        self.initialisee.emit()
 
     # --- Commandes appelées par la barre d'affichage et le ruban ---
 
     @property
     def prete(self) -> bool:
         return bool(self._inited) and not self._libere
+
+    @property
+    def contexte(self) -> Any:
+        """Contexte d'affichage d'OpenCascade (AIS_InteractiveContext)."""
+        return self._display.Context
+
+    @property
+    def vue_occ(self) -> Any:
+        """Vue d'OpenCascade (V3d_View)."""
+        return self._display.View
 
     def orienter(self, vue_standard: VueStandard) -> None:
         if self.prete:
@@ -155,9 +179,20 @@ class Vue3D(qtDisplay.qtViewer3d):
                 self._display.Rotation(x, y)
         elif evt.buttons() == Qt.MouseButton.NoButton:
             self._display.MoveTo(x, y)  # surbrillance de ce qui est sous la souris (IHM-04)
+            if self.intercepteur is not None:
+                self.intercepteur.mouvement_ecran(x, y)
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        if self.intercepteur is not None and event.button() == Qt.MouseButton.LeftButton:
+            self.intercepteur.terminer_trace()
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        if not self.prete or event.button() != Qt.MouseButton.LeftButton:
+        if not self.prete:
+            return
+        if event.button() == Qt.MouseButton.RightButton and self.intercepteur is not None:
+            self.intercepteur.terminer_trace()  # clic droit : fin d'une suite de lignes
+            return
+        if event.button() != Qt.MouseButton.LeftButton:
             return
         x, y = self._pixels(event.position())
         deplacement = abs(x - self.dragStartPosX) + abs(y - self.dragStartPosY)
@@ -166,6 +201,8 @@ class Vue3D(qtDisplay.qtViewer3d):
         contexte = self._display.Context
         if noyau_affichage.clic_sur_cube(contexte, self._display.View, x, y):
             return
+        if self.intercepteur is not None and self.intercepteur.clic_ecran(x, y):
+            return  # le clic a servi au tracé
         # Ctrl + clic ajoute ou retire une entité de la sélection, comme SolidWorks.
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
             self._display.ShiftSelect(x, y)
@@ -189,6 +226,8 @@ class Vue3D(qtDisplay.qtViewer3d):
             Qt.Key.Key_Down: (0.0, pas),
         }
         cle = Qt.Key(event.key())
+        if self.intercepteur is not None and self.intercepteur.touche(cle):
+            return
         if cle in rotations and self.prete:
             horizontal, vertical = rotations[cle]
             noyau_affichage.tourner(self._display.View, horizontal, vertical)

@@ -76,8 +76,8 @@ class Arc:
 class GenreRelation(Enum):
     """Relations géométriques (REL-01 à REL-05)."""
 
-    HORIZONTALE = "horizontale"  # 1 ligne
-    VERTICALE = "verticale"  # 1 ligne
+    HORIZONTALE = "horizontale"  # 1 ligne, ou 2 points à la même hauteur
+    VERTICALE = "verticale"  # 1 ligne, ou 2 points l'un au-dessus de l'autre
     COINCIDENTE = "coincidente"  # point + point, ou point + courbe (point sur la courbe)
     POINT_MILIEU = "point_milieu"  # point + ligne
     FIXE = "fixe"  # 1 point
@@ -555,8 +555,8 @@ class Esquisse:
 
 # Combinaisons d'entités acceptées par chaque relation (genres triés par ordre alphabétique).
 _COMBINAISONS: dict[GenreRelation, set[tuple[str, ...]]] = {
-    GenreRelation.HORIZONTALE: {("ligne",)},
-    GenreRelation.VERTICALE: {("ligne",)},
+    GenreRelation.HORIZONTALE: {("ligne",), ("point", "point")},
+    GenreRelation.VERTICALE: {("ligne",), ("point", "point")},
     GenreRelation.COINCIDENTE: {("point", "point"), ("ligne", "point"), ("courbe", "point")},
     GenreRelation.POINT_MILIEU: {("ligne", "point")},
     GenreRelation.FIXE: {("point",)},
@@ -569,8 +569,8 @@ _COMBINAISONS: dict[GenreRelation, set[tuple[str, ...]]] = {
 }
 
 _ATTENDU: dict[GenreRelation, str] = {
-    GenreRelation.HORIZONTALE: "une ligne",
-    GenreRelation.VERTICALE: "une ligne",
+    GenreRelation.HORIZONTALE: "une ligne ou deux points",
+    GenreRelation.VERTICALE: "une ligne ou deux points",
     GenreRelation.COINCIDENTE: "deux points, ou un point et une courbe",
     GenreRelation.POINT_MILIEU: "un point et une ligne",
     GenreRelation.FIXE: "un point",

@@ -116,15 +116,43 @@ _ESQUISSE = Onglet(
     [
         Groupe(
             "Esquisse",
-            [Outil("Esquisse", "Créer une esquisse sur un plan ou une face plane.", "esquisse")],
+            [
+                Outil(
+                    "Esquisse",
+                    "Créer une esquisse sur un plan (ou la quitter si elle est ouverte).",
+                    "esquisse",
+                    "esquisse",
+                )
+            ],
         ),
         Groupe(
             "Tracer",
             [
-                Outil("Ligne", "Tracer une ligne point par point.", "ligne"),
-                Outil("Rectangle", "Tracer un rectangle.", "rectangle"),
-                Outil("Cercle", "Tracer un cercle par centre et rayon.", "cercle"),
-                Outil("Arc", "Tracer un arc de cercle.", "arc"),
+                Outil(
+                    "Ligne",
+                    "Lignes chaînées : un clic par point ; double-clic ou Échap pour finir.",
+                    "ligne",
+                    "esquisse_ligne",
+                    "L",
+                ),
+                Outil(
+                    "Rectangle",
+                    "Rectangle par deux coins opposés.",
+                    "rectangle",
+                    "esquisse_rectangle",
+                ),
+                Outil(
+                    "Cercle",
+                    "Cercle : cliquez le centre, puis un point du cercle.",
+                    "cercle",
+                    "esquisse_cercle",
+                ),
+                Outil(
+                    "Arc",
+                    "Arc par trois points : début, fin, puis un point de passage.",
+                    "arc",
+                    "esquisse_arc",
+                ),
             ],
         ),
         Groupe(
@@ -350,3 +378,52 @@ ASTUCE_PAR_TYPE: Final[dict[TypeDocument, str]] = {
     TypeDocument.ASSEMBLAGE: "Astuce : insérez d'abord une pièce, elle sera fixée à l'origine.",
     TypeDocument.MISE_EN_PLAN: "Astuce : commencez par « Vues standard » pour placer les vues.",
 }
+
+
+# --- Mode esquisse (étape 2.4) ---
+QUITTER_ESQUISSE: Final = "Quitter l'esquisse"
+QUITTER_ESQUISSE_INFO: Final = (
+    "Valider et quitter l'esquisse (Échap quand aucun outil n'est actif)."
+)
+CHOISIR_PLAN: Final = "Sur quel plan créer l'esquisse ?"
+ESQUISSE_ARBRE_ASTUCE: Final = "Double-cliquez pour modifier l'esquisse."
+ETAT_PAS_D_ESQUISSE: Final = "Pas d'esquisse en cours"
+
+CONSIGNES_OUTILS: Final[dict[str, list[str]]] = {
+    "ligne": [
+        "Ligne : cliquez le point de départ.",
+        "Ligne : cliquez le point suivant (double-clic ou Échap pour finir).",
+    ],
+    "rectangle": ["Rectangle : cliquez un premier coin.", "Rectangle : cliquez le coin opposé."],
+    "cercle": ["Cercle : cliquez le centre.", "Cercle : cliquez un point du cercle."],
+    "arc": [
+        "Arc : cliquez le point de début.",
+        "Arc : cliquez le point de fin.",
+        "Arc : cliquez un point de passage.",
+    ],
+}
+CONSIGNE_SANS_OUTIL: Final = (
+    "Esquisse : choisissez un outil (Ligne, Rectangle…) ; Suppr efface la sélection ; "
+    "Échap quitte l'esquisse."
+)
+
+
+def etat_esquisse(nom: str, etat: str, degres: int) -> str:
+    """« Esquisse1 : sous-contrainte (4 degrés de liberté) »."""
+    if degres > 0:
+        pluriel = "s" if degres > 1 else ""
+        return f"{nom} : {etat} ({degres} degré{pluriel} de liberté)"
+    return f"{nom} : {etat}"
+
+
+def esquisse_vide(nom: str) -> str:
+    return f"{nom} : vide"
+
+
+def libelle_trace(nom_outil: str) -> str:
+    return {"ligne": "Ligne", "rectangle": "Rectangle", "cercle": "Cercle", "arc": "Arc"}.get(
+        nom_outil, nom_outil
+    )
+
+
+SUPPRIMER_ENTITES: Final = "Supprimer"

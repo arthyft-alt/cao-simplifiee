@@ -40,17 +40,25 @@ class Document:
         self.chemin: Path | None = None  # fichier où il est enregistré (None : jamais)
         # Identifiant de séance, pour nommer son fichier de récupération (non enregistré).
         self.identifiant = uuid.uuid4().hex
-        # Contenu propre au type (esquisses, fonctions, composants, vues…) : lots 2 à 5.
+        # Contenu propre au type : objet de travail (`modele`, ex. Piece) et données
+        # brutes qui ne lui appartiennent pas (`contenu`), toutes deux enregistrées.
+        self.modele = _creer_modele(type_document, {})
         self.contenu: dict[str, Any] = {}
 
     def vers_dict(self) -> dict[str, Any]:
         """Données à écrire dans le fichier (voir docs/format_fichier.md)."""
-        return {"type": self.type_document.value, "nom": self.nom, "contenu": self.contenu}
+        contenu = dict(self.contenu)
+        if self.modele is not None:
+            contenu.update(self.modele.vers_dict())
+        return {"type": self.type_document.value, "nom": self.nom, "contenu": contenu}
 
     @classmethod
     def depuis_dict(cls, donnees: dict[str, Any]) -> "Document":
         document = cls(TypeDocument(donnees["type"]), donnees["nom"])
-        document.contenu = dict(donnees.get("contenu", {}))
+        contenu = dict(donnees.get("contenu", {}))
+        document.modele = _creer_modele(document.type_document, contenu)
+        cles_modele = _CLES_MODELE.get(document.type_document, ())
+        document.contenu = {k: v for k, v in contenu.items() if k not in cles_modele}
         return document
 
     @property
@@ -62,6 +70,19 @@ class Document:
         nom = verifier_nom(nouveau_nom)
         if nom != self.nom:
             self.historique.executer(CommandeRenommer(self, nom))
+
+
+# Clés de `contenu` gérées par l'objet de travail de chaque type.
+_CLES_MODELE: dict[TypeDocument, tuple[str, ...]] = {TypeDocument.PIECE: ("esquisses",)}
+
+
+def _creer_modele(type_document: TypeDocument, contenu: dict[str, Any]) -> Any:
+    """Objet de travail du document : une Piece pour une pièce (assemblage et plan : lots 4-5)."""
+    if type_document == TypeDocument.PIECE:
+        from cao.piece.piece import Piece  # import ici : la pièce dépend du document
+
+        return Piece.depuis_dict(contenu)
+    return None
 
 
 class CommandeRenommer(Commande):

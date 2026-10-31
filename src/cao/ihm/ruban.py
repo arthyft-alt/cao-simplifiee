@@ -203,8 +203,11 @@ class BarreAffichage(QToolBar):
         espace_gauche = QWidget()
         espace_gauche.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.addWidget(espace_gauche)
+        self._actions_vues: list[QAction] = []
         for outil in textes.BARRE_AFFICHAGE:
-            self.addAction(creer_action(outil, self, self.outil_demande))
+            action = creer_action(outil, self, self.outil_demande)
+            self.addAction(action)
+            self._actions_vues.append(action)
         self.addSeparator()
         self._creer_filtre()
         espace_droite = QWidget()
@@ -238,5 +241,5 @@ class BarreAffichage(QToolBar):
             self.bouton_filtre.setIcon(action.icon())
 
     def actions_vues(self) -> list[QAction]:
-        """Les actions de vue, sans les espaces de centrage."""
-        return [a for a in self.actions() if a.text() and not a.isSeparator()]
+        """Les actions de vue (Isométrique… Ajuster), sans le reste de la barre."""
+        return list(self._actions_vues)

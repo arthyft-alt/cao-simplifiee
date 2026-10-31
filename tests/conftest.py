@@ -39,6 +39,7 @@ def dialogues_sans_attente(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(FenetreDocument, "demander_avant_fermeture", lambda self: "ignorer")
     monkeypatch.setattr(FenetreDocument, "choisir_chemin_enregistrement", lambda self: None)
     monkeypatch.setattr(FenetreDocument, "afficher_erreur", erreur_inattendue)
+    monkeypatch.setattr(FenetreDocument, "choisir_plan", lambda self: None)
     monkeypatch.setattr(GestionnaireDocuments, "choisir_fichier_a_ouvrir", lambda self, p: None)
     monkeypatch.setattr(GestionnaireDocuments, "demander_recuperation", lambda self, noms: False)
     monkeypatch.setattr(GestionnaireDocuments, "afficher_erreur", erreur_inattendue)

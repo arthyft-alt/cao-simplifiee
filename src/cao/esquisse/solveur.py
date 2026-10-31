@@ -220,10 +220,12 @@ class _Traduction:
     def _traduire(self, relation: Relation) -> None:
         s, plan, g = self.s, self.plan, relation.genre
         ids = relation.entites
-        if g == GenreRelation.HORIZONTALE:
-            s.horizontal(self.courbes[ids[0]], plan)
-        elif g == GenreRelation.VERTICALE:
-            s.vertical(self.courbes[ids[0]], plan)
+        if g in (GenreRelation.HORIZONTALE, GenreRelation.VERTICALE):
+            if len(ids) == 1:
+                ligne = self.courbes[ids[0]]
+            else:  # deux points : le solveur ne sait pas, on passe par une ligne d'aide
+                ligne = self._ligne_aide(self.points[ids[0]], self.points[ids[1]])
+            (s.horizontal if g == GenreRelation.HORIZONTALE else s.vertical)(ligne, plan)
         elif g == GenreRelation.FIXE:
             s.dragged(self.points[ids[0]], plan)
         elif g == GenreRelation.COINCIDENTE:

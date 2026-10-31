@@ -35,6 +35,10 @@ Toute modification d'un document passe par une `Commande` (méthodes `executer` 
 
 Les fenêtres de dialogue (choix d'un fichier, « Enregistrer avant de fermer ? », messages d'erreur, récupération) sont isolées dans des méthodes dédiées (`choisir_chemin_enregistrement`, `demander_avant_fermeture`, `afficher_erreur`, `choisir_fichier_a_ouvrir`, `demander_recuperation`). `tests/conftest.py` les remplace par des réponses automatiques : **aucun test ne doit ouvrir une fenêtre qui attend une réponse** (sinon les tests se bloquent).
 
+## Mode esquisse
+
+`ModeEsquisse` (ihm) reçoit les clics de la vue en pixels réels, les convertit en coordonnées du plan (`noyau.esquisse_3d.point_sur_plan`), accroche le point existant le plus proche (10 pixels), passe le clic à l'outil (`esquisse.outils`) et exécute la modification par une `CommandeEsquisse` annulable, puis résout l'esquisse et la redessine. Sans vue 3D (tests), on appelle `clic_plan(u, v)` directement.
+
 ## Paquets
 
 | Paquet | Rôle | Peut importer |
@@ -44,7 +48,7 @@ Les fenêtres de dialogue (choix d'un fichier, « Enregistrer avant de fermer ? 
 | `cao.piece` | Fonctions volumiques, arbre de construction, reconstruction | noyau, esquisse |
 | `cao.assemblage` | Composants, contraintes d'assemblage, interférences | noyau, piece |
 | `cao.plan` | Vues, cotation, cartouche, nomenclature | noyau, piece, assemblage |
-| `cao.document` | Document commun (nom, type, historique annuler / rétablir) | fichiers |
+| `cao.document` | Document commun (nom, type, historique annuler / rétablir) ; objet de travail par type (Piece) | fichiers, piece |
 | `cao.fichiers` | Format natif, récupération, STEP, STL, DXF | noyau, document et paquets métier |
 | `cao.ihm` | Tout ce qui est Qt, y compris le visualiseur `OCC.Display` | tous les paquets |
 
@@ -67,7 +71,9 @@ src/cao/
 ├── noyau/
 │   └── affichage.py  vue 3D : orientations (Y vers le haut), cube de vue, zoom au point,
 │                     modes de rendu, apparence et éclairage, sélection et filtre (sans Qt)
-│   └── mesure.py     mesure rapide (IHM-12) : longueur, aire, rayon, distance, angle
+│   ├── mesure.py     mesure rapide (IHM-12) : longueur, aire, rayon, distance, angle
+│   └── esquisse_3d.py  affichage des esquisses (couleur d'état, construction en pointillés,
+│                     aperçu), conversion d'un clic en coordonnées du plan
 ├── esquisse/
 │   ├── geometrie.py  calculs plans : cercle par 3 points, arc tangent, rectangles (sans dépendance)
 │   └── esquisse.py   modèle d'esquisse : points P1…, lignes L1…, cercles C1…, arcs A1… ;
@@ -75,8 +81,15 @@ src/cao/
 │                     relations R1… (REL-01 à 05) et cotes D1… (COT-01, 05) vérifiées
 │                     à l'ajout ; origine P0 fixe, jamais enregistrée
 │   ├── mesures.py    valeur actuelle d'une cote, angle « intérieur » entre deux lignes
+│   ├── plans.py      plans de face / dessus / droite : (u, v) <-> (X, Y, Z)
+│   ├── outils.py     outils de tracé à la souris (ligne, rectangle, cercle, arc), sans écran
+│   ├── aimants.py    aimantation du curseur (ESQ-04) : points, horizontale/verticale,
+│                     axes du repère, alignements ; guides à afficher
 │   └── solveur.py    pont vers python-solvespace : résout, recopie, degrés de liberté,
 │                     relations en conflit (voir ses particularités en tête du fichier)
+├── piece/
+│   └── piece.py      Piece (ses esquisses) ; CommandeEsquisse : toute modification d'une
+│                     esquisse est annulable (état avant / après)
 ├── document/
 │   ├── historique.py  annuler / rétablir : Commande, CommandeGroupee, PileAnnulation (sans Qt)
 │   └── document.py    Document (type, nom, historique) ; CommandeRenommer
@@ -94,7 +107,9 @@ src/cao/
     ├── icones.py    icônes vectorielles SVG dessinées pour le projet
     ├── ruban.py     ruban à onglets groupés, s'adapte à la largeur (grand / moyen / compact)
     ├── arbre.py     arbre de construction / panneau de propriétés (même emplacement)
-    ├── vue3d.py     visualiseur OpenCascade, navigation à la molette
+    ├── vue3d.py     visualiseur OpenCascade, navigation ; transmet souris et clavier
+    │                à un « intercepteur » (le mode esquisse) quand il est actif
+    ├── mode_esquisse.py  mode esquisse : entrer / quitter, outils, accrochage, couleurs
     └── panneaux/
         └── mesure.py  panneau « Mesure » (remplace l'arbre pendant la mesure)
 tests/               même découpage que src/cao

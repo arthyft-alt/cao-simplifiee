@@ -22,7 +22,7 @@ from OCC.Core.AIS import (
     AIS_WireFrame,
 )
 from OCC.Core.Aspect import Aspect_TOL_SOLID, Aspect_TOTP_RIGHT_UPPER
-from OCC.Core.gp import gp_Dir, gp_Vec
+from OCC.Core.gp import gp_Dir, gp_Pnt, gp_Vec
 from OCC.Core.Graphic3d import (
     Graphic3d_MaterialAspect,
     Graphic3d_NameOfMaterial_Satin,
@@ -191,6 +191,26 @@ def orienter(vue: V3d_View, vue_standard: VueStandard, ajuster: bool = True) -> 
     vue.SetProj(ORIENTATIONS[vue_standard], True)
     if ajuster:
         vue.FitAll(0.1, True)
+    vue.Redraw()
+
+
+LARGEUR_CADRAGE_DEFAUT = 200.0  # mm : cadrage d'une pièce vide (assez pour une pièce de TP)
+
+
+def centrer_sur_origine(vue: V3d_View, largeur: float = LARGEUR_CADRAGE_DEFAUT) -> None:
+    """Cadre l'origine avec une largeur visible donnée, sans changer l'orientation.
+
+    Utile quand la scène est vide : « Ajuster » n'a alors rien sur quoi se régler.
+    """
+    camera = vue.Camera()
+    distance = camera.Distance()
+    direction = camera.Direction()
+    centre = gp_Pnt(0.0, 0.0, 0.0)
+    camera.SetCenter(centre)
+    camera.SetEye(
+        gp_Pnt(-direction.X() * distance, -direction.Y() * distance, -direction.Z() * distance)
+    )
+    vue.SetSize(largeur)
     vue.Redraw()
 
 
