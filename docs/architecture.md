@@ -68,6 +68,10 @@ src/cao/
 │   └── affichage.py  vue 3D : orientations (Y vers le haut), cube de vue, zoom au point,
 │                     modes de rendu, apparence et éclairage, sélection et filtre (sans Qt)
 │   └── mesure.py     mesure rapide (IHM-12) : longueur, aire, rayon, distance, angle
+├── esquisse/
+│   ├── geometrie.py  calculs plans : cercle par 3 points, arc tangent, rectangles (sans dépendance)
+│   └── esquisse.py   modèle d'esquisse : points P1…, lignes L1…, cercles C1…, arcs A1… ;
+│                     les courbes désignent des points (partagés = contour relié)
 ├── document/
 │   ├── historique.py  annuler / rétablir : Commande, CommandeGroupee, PileAnnulation (sans Qt)
 │   └── document.py    Document (type, nom, historique) ; CommandeRenommer
