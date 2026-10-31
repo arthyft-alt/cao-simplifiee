@@ -3,9 +3,10 @@
 ## Où en est-on ?
 
 - **Date :** 2026-10-31
-- **Phase en cours :** Lot 1 — Socle
 - **Dernière étape validée :** 1.6 — enregistrer / ouvrir / sauvegarde automatique / récupération ; lanceur `lancer_cao.bat` ; validée par Simon
-- **Prochaine étape :** 1.7 (intégration continue GitHub Actions, Ubuntu + Windows — TEC-11) : nécessite un compte GitHub
+- **Étape reportée :** 1.7 — intégration continue : recette `.github/workflows/tests.yml` écrite mais jamais exécutée ; reportée à la demande de Simon (pas encore de compte GitHub). À reprendre : compte GitHub, e-mail anonyme dans l'historique, dépôt public, envoi, badges verts.
+- **Phase en cours :** Lot 2 — Esquisse
+- **Prochaine étape :** 2.1 (modèle de données : points, lignes, cercles, arcs, sans affichage — GEO-01 à 04)
 
 ## Contexte
 
@@ -45,6 +46,7 @@
 | 2026-10-31 | Boutons Annuler / Rétablir à côté de Fichier ; Ctrl+Z, Ctrl+Y (et Ctrl+Maj+Z) | Comme SolidWorks et la plupart des logiciels |
 | 2026-10-31 | Format natif : archive ZIP contenant document.json (+ géométrie B-Rep au lot 3) ; écriture via fichier temporaire ; numéro de version de format | DOC-07 lisible et documenté ; §8.4 aucune corruption ; compatibilité ascendante |
 | 2026-10-31 | Sauvegarde automatique dans un dossier de récupération séparé (jamais dans le fichier de l'utilisateur), copies effacées à la fermeture normale | DOC-03 et §8.4 sans écraser le travail sans accord |
+| 2026-10-31 | Dépôt GitHub public ; e-mail des enregistrements remplacé par l'adresse anonyme GitHub avant le premier envoi | Logiciel libre GPL (Actions gratuites) ; ne pas publier l'e-mail personnel de Simon |
 | 2026-10-31 | Extensions de fichiers .caop (pièce), .caoa (assemblage), .caom (mise en plan) | Choix par défaut appliqué (Simon a validé l'étape sans demander de changement) |
 | 2026-10-31 | Outils pas encore programmés : cliquables, affichent « Pas encore disponible » dans la barre d'état (au lieu d'être grisés) | Interface plus vivante ; à remplacer outil par outil |
 
@@ -53,8 +55,8 @@
 | Lot | Contenu | Exigences | État |
 | --- | --- | --- | --- |
 | 0. Prototypes | Cube affiché, extrusion + STEP, solveur, vue HLR | — | Terminé (2026-10-31) |
-| 1. Socle | Fenêtre, navigation 3D, arbre, fichiers | IHM, ARB, DOC (P1) | En cours (1.1 à 1.6 faites) |
-| 2. Esquisse | Entités, relations, solveur, cotation | ESQ, GEO, OUT, REL, COT (P1) | À faire |
+| 1. Socle | Fenêtre, navigation 3D, arbre, fichiers | IHM, ARB, DOC (P1) | Fait sauf 1.7 (intégration continue, reportée) |
+| 2. Esquisse | Entités, relations, solveur, cotation | ESQ, GEO, OUT, REL, COT (P1) | En cours |
 | 3. Fonctions | Extrusions, révolutions, congés, répétitions | VOL, HAB, REP, REF, PRO (P1) | À faire |
 | 4. Assemblage | Insertion, contraintes, déplacement | ASM, CTR, ANA (P1) | À faire |
 | 5. Mise en plan | Vues, coupes, cotation, nomenclature, PDF, STEP, STL | MEP, VUE, ANN, NOM, SOR, ECH (P1) | À faire |
@@ -62,7 +64,7 @@
 
 ## Points ouverts restants
 
-- Compte GitHub : à créer ou existant ? (utile à l'étape 1.7)
+- Compte GitHub : Simon le crée (étape 1.7)
 
 ## Journal des séances
 

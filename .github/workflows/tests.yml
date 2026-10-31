@@ -1,0 +1,53 @@
+# Intégration continue (exigence TEC-11) : à chaque envoi sur GitHub, le logiciel
+# est installé de zéro sous Ubuntu et sous Windows, puis vérifié (ruff, mypy, pytest).
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:  # bouton « Run workflow » dans l'onglet Actions
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false  # un échec sous Linux n'arrête pas les tests sous Windows
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash -el {0}  # « -l » active l'environnement conda dans chaque étape
+    env:
+      QT_QPA_PLATFORM: offscreen  # pas d'écran sur les machines de GitHub
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Bibliothèques système pour Qt et OpenGL (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libfontconfig1 libdbus-1-3
+
+      - name: Installer l'environnement conda « cao »
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          environment-file: environment.yml
+          activate-environment: cao
+
+      - name: Installer le projet
+        run: pip install -e .
+
+      - name: Style (ruff)
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Types (mypy)
+        run: mypy
+
+      - name: Tests (pytest)
+        run: pytest -v
