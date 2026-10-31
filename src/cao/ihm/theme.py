@@ -127,6 +127,12 @@ QToolButton#bouton_quitter_esquisse {{ background: {c["accent"]}; color: #ffffff
         font-weight: 600; border-radius: 6px; padding: 3px 10px; margin-right: 12px; }}
 QToolButton#bouton_quitter_esquisse:hover {{ background: {c["accent_fonce"]}; }}
 
+QToolButton#pastille_unites {{ background: {c["surface_douce"]};
+        border: 1px solid {c["bordure"]}; border-radius: 9px; padding: 1px 10px; margin: 3px 3px;
+        color: {c["texte_doux"]}; font-size: {petite}pt; }}
+QToolButton#pastille_unites:hover {{ background: {c["survol"]}; }}
+QToolButton#pastille_unites::menu-indicator {{ image: none; width: 0; }}
+
 QToolTip {{ background: {c["texte"]}; color: #ffffff; border: none; padding: 6px 8px;
         border-radius: 6px; }}
 """

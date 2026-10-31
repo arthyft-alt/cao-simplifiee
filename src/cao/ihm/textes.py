@@ -160,8 +160,11 @@ _ESQUISSE = Onglet(
             [
                 Outil(
                     "Cote",
-                    "Cotation intelligente : le type de cote dépend de la sélection.",
+                    "Cotation intelligente : cliquez une ou deux entités, puis dans le vide "
+                    "pour placer la cote ; le type de cote est déduit de la sélection.",
                     "cote",
+                    "esquisse_cote",
+                    "D",
                 ),
                 Outil("Relation", "Ajouter une relation géométrique.", "relation"),
             ],
@@ -427,3 +430,46 @@ def libelle_trace(nom_outil: str) -> str:
 
 
 SUPPRIMER_ENTITES: Final = "Supprimer"
+
+
+# --- Cotation (étape 2.6) ---
+CONSIGNES_COTE: Final[list[str]] = [
+    "Cote : cliquez une ligne, un point, un cercle ou un arc (il s'éclaire au survol).",
+    "Cote : placez la cote avec la souris et cliquez ; ou cliquez une 2e entité.",
+    "Cote : placez la cote avec la souris et cliquez (Échap pour recommencer).",
+]
+LIBELLE_COTE: Final = "Cote"
+LIBELLE_MODIFIER_COTE: Final = "Modifier une cote"
+COTE_DEVENUE_PILOTEE: Final = (
+    "L'esquisse était déjà contrainte : la cote est ajoutée « de référence », entre parenthèses."
+)
+COTE_PILOTEE_NON_MODIFIABLE: Final = (
+    "Cote de référence (entre parenthèses) : elle mesure sans imposer, elle ne se modifie pas."
+)
+VALEUR_IMPOSSIBLE: Final = (
+    "Cette valeur est impossible avec les autres relations et cotes : rien n'a été changé."
+)
+TITRE_SAISIE_COTE: Final = "Modifier la cote"
+
+
+def titre_saisie_cote(texte_actuel: str, unite: str, angle: bool) -> str:
+    unite_saisie = "degrés" if angle else unite
+    return f"Cote actuelle : {texte_actuel}\nNouvelle valeur (en {unite_saisie}) :"
+
+
+def nombre_saisie(valeur: float) -> str:
+    """Nombre proposé dans le champ de saisie : « 30 » ou « 12,5 »."""
+    texte = f"{valeur:.6f}".rstrip("0").rstrip(".")
+    return texte.replace(".", ",")
+
+
+# --- Unités (COT-06) ---
+UNITES_INFO: Final = "Unités de longueur et nombre de décimales affichées."
+UNITES_DECIMALES: Final = "Décimales"
+
+
+def exemple_decimales(nombre: int) -> str:
+    """« 2 décimales (12,35) »."""
+    exemple = f"{12.3456:.{nombre}f}".replace(".", ",")
+    pluriel = "s" if nombre > 1 else ""
+    return f"{nombre} décimale{pluriel} ({exemple})"

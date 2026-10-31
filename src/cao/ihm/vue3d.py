@@ -39,6 +39,7 @@ class Intercepteur(Protocol):
     def clic_ecran(self, x: int, y: int) -> bool: ...
     def mouvement_ecran(self, x: int, y: int) -> None: ...
     def terminer_trace(self) -> None: ...
+    def double_clic_ecran(self, x: int, y: int) -> None: ...
     def touche(self, cle: int) -> bool: ...
 
 
@@ -184,7 +185,8 @@ class Vue3D(qtDisplay.qtViewer3d):
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         if self.intercepteur is not None and event.button() == Qt.MouseButton.LeftButton:
-            self.intercepteur.terminer_trace()
+            x, y = self._pixels(event.position())
+            self.intercepteur.double_clic_ecran(x, y)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if not self.prete:

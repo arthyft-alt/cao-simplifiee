@@ -24,11 +24,19 @@ from pathlib import Path
 from typing import Protocol
 
 from PySide6.QtCore import QStandardPaths, Qt, Signal
-from PySide6.QtGui import QAction, QCloseEvent, QCursor, QGuiApplication, QKeySequence
+from PySide6.QtGui import (
+    QAction,
+    QActionGroup,
+    QCloseEvent,
+    QCursor,
+    QGuiApplication,
+    QKeySequence,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -40,7 +48,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from cao.document.document import Document, NomInvalide
+from cao.document.document import CommandeUnites, Document, NomInvalide
+from cao.document.unites import UniteLongueur, Unites
 from cao.esquisse.outils import OUTILS
 from cao.esquisse.plans import PLANS, plan_par_libelle
 from cao.fichiers import format_natif
@@ -266,7 +275,7 @@ class FenetreDocument(QMainWindow):
         super().closeEvent(event)
 
     def _creer_barre_etat(self) -> None:
-        self.pastilles: list[QLabel] = []
+        self.pastilles: list[QLabel | QToolButton] = []
         barre = self.statusBar()
         barre.setSizeGripEnabled(False)
         # Mesure rapide de la sélection (IHM-12), cachée quand il n'y a rien à mesurer.
@@ -275,14 +284,55 @@ class FenetreDocument(QMainWindow):
         self.pastille_mesure.setVisible(False)
         barre.addPermanentWidget(self.pastille_mesure)
         for texte in textes.ETAT_PAR_TYPE[self.type_document]:
-            pastille = QLabel(texte)
-            pastille.setObjectName("pastille")
+            if texte == textes.ETAT_UNITES:
+                pastille: QLabel | QToolButton = self._creer_bouton_unites()
+            else:
+                pastille = QLabel(texte)
+                pastille.setObjectName("pastille")
             self.pastilles.append(pastille)
             barre.addPermanentWidget(pastille)
         self.astuce = textes.ASTUCE_PAR_TYPE[self.type_document]
         barre.showMessage(self.astuce)
         # Quand un message temporaire s'efface, l'astuce revient.
         barre.messageChanged.connect(self._remettre_astuce)
+
+    def _creer_bouton_unites(self) -> QToolButton:
+        """Pastille « mm » cliquable : unité de longueur et nombre de décimales (COT-06)."""
+        self.bouton_unites = QToolButton()
+        self.bouton_unites.setObjectName("pastille_unites")
+        self.bouton_unites.setToolTip(textes.UNITES_INFO)
+        self.bouton_unites.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(self.bouton_unites)
+        groupe_unites = QActionGroup(menu)
+        self.actions_unites: dict[UniteLongueur, QAction] = {}
+        for unite in UniteLongueur:
+            action = menu.addAction(f"{unite.value} ({unite.libelle})")
+            action.setCheckable(True)
+            groupe_unites.addAction(action)
+            action.triggered.connect(partial(self.changer_unites, unite, None))
+            self.actions_unites[unite] = action
+        sous_menu = menu.addMenu(textes.UNITES_DECIMALES)
+        groupe_decimales = QActionGroup(sous_menu)
+        self.actions_decimales: dict[int, QAction] = {}
+        for nombre in range(5):
+            action = sous_menu.addAction(textes.exemple_decimales(nombre))
+            action.setCheckable(True)
+            groupe_decimales.addAction(action)
+            action.triggered.connect(partial(self.changer_unites, None, nombre))
+            self.actions_decimales[nombre] = action
+        self.bouton_unites.setMenu(menu)
+        self.bouton_unites.setText(textes.ETAT_UNITES)
+        return self.bouton_unites
+
+    def changer_unites(self, unite: UniteLongueur | None, decimales: int | None) -> None:
+        """Nouvelle unité ou précision d'affichage (annulable par Ctrl+Z)."""
+        actuelles = self.document.unites
+        nouvelles = Unites(
+            unite if unite is not None else actuelles.longueur,
+            decimales if decimales is not None else actuelles.decimales,
+        )
+        if nouvelles != actuelles:
+            self.document.historique.executer(CommandeUnites(self.document, nouvelles))
 
     def _remettre_astuce(self, message: str) -> None:
         if not message:  # un message temporaire vient de s'effacer
@@ -323,8 +373,9 @@ class FenetreDocument(QMainWindow):
         mode = ModeEsquisse(self.document, vue)
         self.mode_esquisse = mode
         self.commandes["esquisse"] = self.basculer_esquisse
-        for nom in OUTILS:
+        for nom in [*OUTILS, "cote"]:
             self.commandes[f"esquisse_{nom}"] = partial(self.outil_esquisse, nom)
+        mode.demander_valeur = self.demander_valeur_cote
         mode.actif_change.connect(self._mode_esquisse_change)
         mode.etat_change.connect(self.pastilles[1].setText)
         mode.consigne.connect(self._afficher_consigne)
@@ -357,6 +408,11 @@ class FenetreDocument(QMainWindow):
         self.action_supprimer.triggered.connect(self.supprimer_selection)
         self.addActions([self.action_echap, self.action_supprimer])
         self._rafraichir_arbre_esquisses()
+
+    def demander_valeur_cote(self, titre: str, valeur: str) -> str | None:
+        """Petite fenêtre de saisie de la valeur d'une cote (Entrée pour valider)."""
+        texte, ok = QInputDialog.getText(self, textes.TITRE_SAISIE_COTE, titre, text=valeur)
+        return texte if ok else None
 
     def plan_pour_esquisse(self) -> str | None:
         """Plan sélectionné dans l'arbre, sinon demandé à l'utilisateur."""
@@ -485,6 +541,11 @@ class FenetreDocument(QMainWindow):
             textes.titre_fenetre(self.document.nom, INFOS[self.type_document].libelle)
         )
         self.setWindowModified(self.document.modifie)
+        if hasattr(self, "bouton_unites"):
+            unites = self.document.unites
+            self.bouton_unites.setText(unites.longueur.value)
+            self.actions_unites[unites.longueur].setChecked(True)
+            self.actions_decimales[unites.decimales].setChecked(True)
         self.panneau_gauche.arbre.afficher_nom_document(self.document.nom)
         self.action_annuler.setEnabled(historique.peut_annuler)
         self.action_retablir.setEnabled(historique.peut_retablir)

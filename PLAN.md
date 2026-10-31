@@ -3,11 +3,12 @@
 ## Où en est-on ?
 
 - **Date :** 2026-10-31
-- **Dernière étape validée :** 1.6 — enregistrer / ouvrir / sauvegarde automatique / récupération ; lanceur `lancer_cao.bat` ; validée par Simon
+- **Phase en cours :** Lot 2 — Esquisse (2.1 à 2.6 faites)
 - **Étape reportée :** 1.7 — intégration continue : recette `.github/workflows/tests.yml` écrite mais jamais exécutée ; reportée à la demande de Simon (pas encore de compte GitHub). À reprendre : compte GitHub, e-mail anonyme dans l'historique, dépôt public, envoi, badges verts.
-- **Phase en cours :** Lot 2 — Esquisse
-- **Dernière étape validée :** 2.4 + 2.5 — mode esquisse (tracé à la souris, Ctrl+Z, Échap, Suppr, couleur d'état, réouverture) et système d'aimant (points, horizontale/verticale, repère, alignements) ; validées par Simon
-- **Prochaine étape :** 2.6 (cotation intelligente : une seule commande « Cote », type déduit de la sélection ; saisie de la valeur ; double-clic pour modifier — COT-01, 02, 06)
+- **Lancer le logiciel :** double-clic sur `lancer_cao.bat` (le Python du système ne connaît pas le logiciel).
+- **Dernière étape validée :** 2.6 — cotation intelligente comme SolidWorks (survol, sélection, cote qui suit la souris, correction de la valeur, double-clic, cotes de référence, unités) ; validée par Simon après 2 corrections de placement
+- **En cours (parenthèse demandée par Simon) :** étape 1.7 reprise — mise sur GitHub et intégration continue
+- **Prochaine étape du Lot 2 :** 2.7 (outils : ajuster, congé d'esquisse, symétrie ; lignes de construction — OUT-01, 03, 05, ESQ-08)
 
 ## Contexte
 
@@ -54,6 +55,9 @@
 | 2026-10-31 | État de contrainte (ESQ-07) calculé pour l'esquisse entière ; coloration entité par entité à étudier (le solveur ne donne que le total des degrés de liberté) | Limite de python-solvespace |
 | 2026-10-31 | Mode esquisse : toute modification d'une esquisse = commande « état avant / après » (annulable sans code spécifique) ; outils de tracé sans écran (testables) ; accrochage à 10 pixels ; arc par 3 points (début, fin, passage) ; cadrage de 200 mm sur une pièce vide | Simplicité et fiabilité ; comportement proche de SolidWorks |
 | 2026-10-31 | Aimants (ESQ-04) : priorité point > horizontale/verticale de la ligne en cours > axes > alignement avec un point ; tolérance 10 pixels ; relations ajoutées : coïncidence, H/V de ligne, point sur axe (relation H/V avec l'origine) ; alignement avec un point = aide sans relation (comme SolidWorks) ; rectangle avec ses 4 relations H/V | Demande de Simon : figures bien fermées et bien tenues |
+| 2026-10-31 | Cotation : cote posée avec la mesure actuelle puis valeur demandée ; une cote qui sur-contraindrait devient « de référence » (parenthèses) au lieu de bloquer ; une valeur impossible est refusée sans rien changer ; texte des cotes en pixels (taille fixe à l'écran), police Arial, centré ; écart de la cote (déport) enregistré | Comportement de SolidWorks ; lisibilité |
+| 2026-10-31 | Unités (COT-06) enregistrées avec le document, changées par la pastille d'unités (annulable) ; valeurs toujours stockées en mm ; virgule décimale | Saisie française, fichiers indépendants de l'affichage |
+| 2026-10-31 | Cotation comme SolidWorks : survol mis en évidence, 1 ou 2 entités, cote d'aperçu qui suit la souris, clic pour placer, fenêtre de correction ; sélection par proximité dans le plan (tolérance 10 pixels, points prioritaires) | Demande de Simon |
 | 2026-10-31 | Extensions de fichiers .caop (pièce), .caoa (assemblage), .caom (mise en plan) | Choix par défaut appliqué (Simon a validé l'étape sans demander de changement) |
 | 2026-10-31 | Outils pas encore programmés : cliquables, affichent « Pas encore disponible » dans la barre d'état (au lieu d'être grisés) | Interface plus vivante ; à remplacer outil par outil |
 

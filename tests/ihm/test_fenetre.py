@@ -65,18 +65,23 @@ def test_chaque_outil_a_icone_et_info_bulle(fenetre: FenetreDocument) -> None:
 
 
 def test_outil_non_programme_affiche_un_message(fenetre: FenetreDocument) -> None:
-    # Premier outil du ruban qui n'a pas encore de commande (la liste évolue à chaque étape).
+    # Premier outil de la pièce qui n'a pas encore de commande (la liste évolue à chaque étape).
+    outil = next(
+        o
+        for onglet in textes.ONGLETS_PAR_TYPE[TypeDocument.PIECE]
+        for g in onglet.groupes
+        for o in g.outils
+        if not o.commande
+    )
     bouton = next(
         b
         for page in fenetre.ruban.pages
         for groupe in page.groupes
         for b in groupe.boutons
-        if b.defaultAction().text() not in {"Esquisse", "Ligne", "Rectangle", "Cercle", "Arc"}
-        and str(b.property("nom_outil")) not in {"Mesurer", "Ombré avec arêtes", "Ombré"}
+        if b.property("nom_outil") == outil.nom
     )
-    nom = str(bouton.property("nom_outil"))
     bouton.defaultAction().trigger()
-    assert fenetre.statusBar().currentMessage() == textes.message_bientot(nom)
+    assert fenetre.statusBar().currentMessage() == textes.message_bientot(outil.nom)
 
 
 def test_arbre_piece_contient_plans_et_origine(fenetre: FenetreDocument) -> None:

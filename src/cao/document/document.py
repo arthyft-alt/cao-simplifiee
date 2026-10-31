@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from cao.document.historique import Commande, PileAnnulation
+from cao.document.unites import Unites
 from cao.fichiers.types_documents import TypeDocument
 
 
@@ -44,12 +45,14 @@ class Document:
         # brutes qui ne lui appartiennent pas (`contenu`), toutes deux enregistrées.
         self.modele = _creer_modele(type_document, {})
         self.contenu: dict[str, Any] = {}
+        self.unites = Unites()  # unités d'affichage et de saisie (COT-06)
 
     def vers_dict(self) -> dict[str, Any]:
         """Données à écrire dans le fichier (voir docs/format_fichier.md)."""
         contenu = dict(self.contenu)
         if self.modele is not None:
             contenu.update(self.modele.vers_dict())
+        contenu["unites"] = self.unites.vers_dict()
         return {"type": self.type_document.value, "nom": self.nom, "contenu": contenu}
 
     @classmethod
@@ -57,7 +60,8 @@ class Document:
         document = cls(TypeDocument(donnees["type"]), donnees["nom"])
         contenu = dict(donnees.get("contenu", {}))
         document.modele = _creer_modele(document.type_document, contenu)
-        cles_modele = _CLES_MODELE.get(document.type_document, ())
+        document.unites = Unites.depuis_dict(dict(contenu.get("unites", {})))
+        cles_modele = (*_CLES_MODELE.get(document.type_document, ()), "unites")
         document.contenu = {k: v for k, v in contenu.items() if k not in cles_modele}
         return document
 
@@ -97,3 +101,19 @@ class CommandeRenommer(Commande):
 
     def annuler(self) -> None:
         self.document.nom = self.ancien_nom
+
+
+class CommandeUnites(Commande):
+    """Changement d'unité ou de précision d'affichage (annulable)."""
+
+    def __init__(self, document: Document, unites: Unites) -> None:
+        self.document = document
+        self.avant = document.unites
+        self.apres = unites
+        self.libelle = f"Unités : {unites.longueur.value}, {unites.decimales} décimales"
+
+    def executer(self) -> None:
+        self.document.unites = self.apres
+
+    def annuler(self) -> None:
+        self.document.unites = self.avant

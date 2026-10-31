@@ -27,7 +27,7 @@ def _extremites(esquisse: Esquisse, cote: Cote) -> tuple[Point2D, Point2D]:
     return esquisse.position(cote.entites[0]), esquisse.position(cote.entites[1])
 
 
-def _intersection(a: Point2D, b: Point2D, c: Point2D, d: Point2D) -> Point2D | None:
+def intersection(a: Point2D, b: Point2D, c: Point2D, d: Point2D) -> Point2D | None:
     """Point de rencontre des droites (a, b) et (c, d), ou None si elles sont parallèles."""
     r, s = b - a, d - c
     denominateur = r.x * s.y - r.y * s.x
@@ -50,7 +50,7 @@ def angle_interieur(esquisse: Esquisse, l1: str, l2: str) -> tuple[float, bool]:
     assert isinstance(a, Ligne) and isinstance(b, Ligne)
     pa, qa = esquisse.position(a.debut), esquisse.position(a.fin)
     pb, qb = esquisse.position(b.debut), esquisse.position(b.fin)
-    rencontre = _intersection(pa, qa, pb, qb)
+    rencontre = intersection(pa, qa, pb, qb)
     if rencontre is None:
         raise ValueError("lignes parallèles : pas d'angle")
     # Pour chaque ligne : +1 si l'on va dans son sens de tracé en partant de la rencontre.

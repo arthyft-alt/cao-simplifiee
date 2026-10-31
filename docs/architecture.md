@@ -72,6 +72,7 @@ src/cao/
 │   └── affichage.py  vue 3D : orientations (Y vers le haut), cube de vue, zoom au point,
 │                     modes de rendu, apparence et éclairage, sélection et filtre (sans Qt)
 │   ├── mesure.py     mesure rapide (IHM-12) : longueur, aire, rayon, distance, angle
+│   ├── cotes_3d.py   dessin des cotes (PrsDim d'OpenCascade), texte fourni par l'interface
 │   └── esquisse_3d.py  affichage des esquisses (couleur d'état, construction en pointillés,
 │                     aperçu), conversion d'un clic en coordonnées du plan
 ├── esquisse/
@@ -83,6 +84,8 @@ src/cao/
 │   ├── mesures.py    valeur actuelle d'une cote, angle « intérieur » entre deux lignes
 │   ├── plans.py      plans de face / dessus / droite : (u, v) <-> (X, Y, Z)
 │   ├── outils.py     outils de tracé à la souris (ligne, rectangle, cercle, arc), sans écran
+│   ├── cotation.py   cotation intelligente : type de cote déduit de la sélection (tableau 3.5)
+│   ├── proximite.py  entité la plus proche du curseur (points prioritaires), pour la sélection
 │   ├── aimants.py    aimantation du curseur (ESQ-04) : points, horizontale/verticale,
 │                     axes du repère, alignements ; guides à afficher
 │   └── solveur.py    pont vers python-solvespace : résout, recopie, degrés de liberté,
@@ -92,7 +95,8 @@ src/cao/
 │                     esquisse est annulable (état avant / après)
 ├── document/
 │   ├── historique.py  annuler / rétablir : Commande, CommandeGroupee, PileAnnulation (sans Qt)
-│   └── document.py    Document (type, nom, historique) ; CommandeRenommer
+│   ├── document.py    Document (type, nom, historique, unités) ; CommandeRenommer, CommandeUnites
+│   └── unites.py      unités d'affichage et de saisie (mm, cm, m, pouce ; décimales ; virgule)
 ├── fichiers/
 │   ├── format_natif.py   enregistrer / ouvrir (ZIP + document.json) — voir docs/format_fichier.md
 │   ├── recuperation.py   sauvegarde automatique et récupération après plantage

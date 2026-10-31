@@ -10,10 +10,11 @@ Les entités de construction sont en traits interrompus (ESQ-08).
 Ne dépend pas de Qt.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 
-from OCC.Core.AIS import AIS_InteractiveContext, AIS_Shape
+from OCC.Core.AIS import AIS_InteractiveContext, AIS_InteractiveObject, AIS_Shape
 from OCC.Core.Aspect import (
     Aspect_TOL_DASH,
     Aspect_TOL_SOLID,
@@ -30,7 +31,7 @@ from OCC.Core.TopoDS import TopoDS_Shape
 from OCC.Core.V3d import V3d_View
 
 from cao.esquisse.aimants import Aimantation
-from cao.esquisse.esquisse import ORIGINE, Arc, Cercle, Esquisse, Ligne, Point
+from cao.esquisse.esquisse import ORIGINE, Arc, Cercle, Cote, Esquisse, Ligne, Point
 from cao.esquisse.geometrie import Point2D
 from cao.esquisse.outils import Apercu
 from cao.esquisse.plans import PLANS, PlanEsquisse
@@ -44,6 +45,8 @@ class Teinte(Enum):
     APERCU = (0.45, 0.45, 0.45)  # tracé provisoire
     ORIGINE = (0.80, 0.15, 0.15)  # rouge, comme l'origine de SolidWorks
     AIMANT = (0.95, 0.55, 0.05)  # orange : guides et point attrapé
+    SURVOL = (0.95, 0.55, 0.05)  # orange : entité sous la souris
+    SELECTION = (0.15, 0.39, 0.92)  # bleu franc : entité sélectionnée
 
 
 EPAISSEUR = 2.0
@@ -117,17 +120,28 @@ def _style(presentation: AIS_Shape, teinte: Teinte, construction: bool) -> None:
 class AffichageEsquisse:
     """Objets affichés pour une esquisse, pour pouvoir les retirer ou retrouver l'entité cliquée."""
 
-    presentations: dict[str, AIS_Shape] = field(default_factory=dict)
+    presentations: dict[str, AIS_InteractiveObject] = field(default_factory=dict)
 
     def retirer(self, contexte: AIS_InteractiveContext) -> None:
         for presentation in self.presentations.values():
             contexte.Remove(presentation, False)
         self.presentations.clear()
 
+    def cote_detectee(self, contexte: AIS_InteractiveContext) -> str | None:
+        """Identifiant de la cote que le contexte a détectée sous le curseur, ou None."""
+        if not contexte.HasDetected():
+            return None
+        detecte = contexte.DetectedInteractive()
+        for cle, presentation in self.presentations.items():
+            # Comparaison directe : vrai si c'est le même objet OpenCascade (essai du 2026-10-31).
+            if cle.startswith("cote:") and detecte == presentation:
+                return cle[len("cote:") :]
+        return None
+
     def entite_de(self, forme: TopoDS_Shape) -> str | None:
         """Identifiant de l'entité dont la forme a été cliquée."""
         for identifiant, presentation in self.presentations.items():
-            if presentation.Shape().IsSame(forme):
+            if isinstance(presentation, AIS_Shape) and presentation.Shape().IsSame(forme):
                 return identifiant
         return None
 
@@ -138,8 +152,10 @@ def afficher_esquisse(
     teinte: Teinte,
     avec_points: bool,
     affichage: AffichageEsquisse | None = None,
+    texte_cote: Callable[[Cote], str] | None = None,
 ) -> AffichageEsquisse:
-    """(Ré)affiche une esquisse ; les points ne sont montrés que pendant l'édition."""
+    """(Ré)affiche une esquisse ; les points et les cotes ne sont montrés que pendant
+    l'édition (`texte_cote` donne le texte de chaque cote, unité comprise)."""
     affichage = affichage or AffichageEsquisse()
     affichage.retirer(contexte)
     for identifiant, (forme, construction) in formes_esquisse(esquisse).items():
@@ -160,6 +176,10 @@ def afficher_esquisse(
         )
         contexte.Display(origine, False)
         affichage.presentations[ORIGINE] = origine
+    if texte_cote is not None:
+        from cao.noyau.cotes_3d import afficher_cotes
+
+        afficher_cotes(contexte, esquisse, texte_cote, affichage.presentations)
     contexte.UpdateCurrentViewer()
     return affichage
 
@@ -210,6 +230,62 @@ def afficher_aimant(
         )
         contexte.Display(repere, 0, -1, False)
         affichage.presentations["repere"] = repere
+    contexte.UpdateCurrentViewer()
+    return affichage
+
+
+def afficher_surbrillance(
+    contexte: AIS_InteractiveContext,
+    esquisse: Esquisse,
+    entites: list[tuple[str, Teinte]],
+    affichage: AffichageEsquisse | None = None,
+) -> AffichageEsquisse:
+    """Redessine des entités en trait épais (survol, sélection), devant le reste."""
+    affichage = affichage or AffichageEsquisse()
+    affichage.retirer(contexte)
+    formes = formes_esquisse(esquisse)
+    plan = PLANS[esquisse.plan]
+    for identifiant, teinte in entites:
+        forme: TopoDS_Shape
+        if identifiant == ORIGINE:
+            forme = BRepBuilderAPI_MakeVertex(_pnt(plan, Point2D(0, 0))).Vertex()
+        elif identifiant in formes:
+            forme = formes[identifiant][0]
+        else:
+            continue
+        presentation = AIS_Shape(forme)
+        _style(presentation, teinte, construction=False)
+        couleur = _couleur(teinte)
+        presentation.Attributes().SetWireAspect(
+            Prs3d_LineAspect(couleur, Aspect_TOL_SOLID, EPAISSEUR * 2.2)
+        )
+        presentation.Attributes().SetPointAspect(Prs3d_PointAspect(Aspect_TOM_RING1, couleur, 2.8))
+        contexte.Display(presentation, 0, -1, False)
+        affichage.presentations[f"surbrillance:{identifiant}"] = presentation
+    contexte.UpdateCurrentViewer()
+    return affichage
+
+
+def afficher_apercu_cote(
+    contexte: AIS_InteractiveContext,
+    esquisse: Esquisse,
+    cote: Cote | None,
+    texte: str,
+    affichage: AffichageEsquisse | None = None,
+) -> AffichageEsquisse:
+    """Cote provisoire qui suit la souris avant d'être placée."""
+    from cao.noyau.cotes_3d import creer_dimension
+
+    affichage = affichage or AffichageEsquisse()
+    affichage.retirer(contexte)
+    if cote is not None:
+        try:
+            dimension = creer_dimension(esquisse, cote, texte)
+        except Exception:
+            dimension = None
+        if dimension is not None:
+            contexte.Display(dimension, 0, -1, False)
+            affichage.presentations["apercu_cote"] = dimension
     contexte.UpdateCurrentViewer()
     return affichage
 

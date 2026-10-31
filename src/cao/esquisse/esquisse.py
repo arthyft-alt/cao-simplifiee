@@ -119,6 +119,7 @@ class Cote:
     entites: list[str]
     valeur: float  # mm, ou degrés pour un angle
     pilotee: bool = False  # True : cote « de référence », affichée entre parenthèses (COT-05)
+    deport: float = 8.0  # mm : écart de la ligne de cote (signe : côté gauche si positif)
 
 
 class CoteImpossible(ValueError):
@@ -521,6 +522,7 @@ class Esquisse:
                     "entites": list(c.entites),
                     "valeur": c.valeur,
                     "pilotee": c.pilotee,
+                    "deport": c.deport,
                 }
                 for c in self.cotes.values()
             ],
@@ -547,6 +549,7 @@ class Esquisse:
                 list(brut["entites"]),
                 float(brut["valeur"]),
                 bool(brut.get("pilotee", False)),
+                float(brut.get("deport", 8.0)),
             )
             esquisse.cotes[cote.id] = cote
             esquisse._compteurs["D"] = max(esquisse._compteurs["D"], int(cote.id[1:]))
