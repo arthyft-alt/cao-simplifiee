@@ -52,8 +52,7 @@ def resoudre(avec_cote_hauteur: bool = True) -> tuple[ResultFlag, int, list]:
 
     resultat = systeme.solve()
     points = [
-        systeme.params(p.params)
-        for p in (p_bas_gauche, p_bas_droit, p_haut_droit, p_haut_gauche)
+        systeme.params(p.params) for p in (p_bas_gauche, p_bas_droit, p_haut_droit, p_haut_gauche)
     ]
     return resultat, systeme.dof(), points
 
@@ -77,12 +76,8 @@ def main() -> None:
     if resultat != ResultFlag.OKAY or ddl != 0 or erreur_max > 1e-6:
         raise SystemExit("ÉCHEC : le rectangle n'est pas résolu exactement")
     if resultat2 != ResultFlag.OKAY or ddl2 != 1:
-        raise SystemExit(
-            "ÉCHEC : le cas sous-contraint devrait laisser 1 degré de liberté"
-        )
-    print(
-        f"OK : coordonnées exactes (écart max {erreur_max:.1e} mm), degrés de liberté justes"
-    )
+        raise SystemExit("ÉCHEC : le cas sous-contraint devrait laisser 1 degré de liberté")
+    print(f"OK : coordonnées exactes (écart max {erreur_max:.1e} mm), degrés de liberté justes")
 
 
 if __name__ == "__main__":

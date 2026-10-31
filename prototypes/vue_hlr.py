@@ -43,9 +43,7 @@ def polylignes(compose: TopoDS_Shape) -> list[Polyligne]:
     while explorateur.More():
         courbe = BRepAdaptor_Curve(topods.Edge(explorateur.Current()))
         debut, fin = courbe.FirstParameter(), courbe.LastParameter()
-        nb = (
-            1 if courbe.GetType() == GeomAbs_Line else 40
-        )  # droite : 2 points suffisent
+        nb = 1 if courbe.GetType() == GeomAbs_Line else 40  # droite : 2 points suffisent
         points = []
         for i in range(nb + 1):
             p = courbe.Value(debut + (fin - debut) * i / nb)

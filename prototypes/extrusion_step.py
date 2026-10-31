@@ -86,9 +86,7 @@ def relire_step(chemin: Path) -> TopoDS_Shape:
 def main() -> None:
     piece = percer(plaque_extrudee())
 
-    theorique = (
-        LONGUEUR * LARGEUR * EPAISSEUR - math.pi * (DIAMETRE_TROU / 2) ** 2 * EPAISSEUR
-    )
+    theorique = LONGUEUR * LARGEUR * EPAISSEUR - math.pi * (DIAMETRE_TROU / 2) ** 2 * EPAISSEUR
     calcule = volume(piece)
 
     DOSSIER_SORTIE.mkdir(exist_ok=True)

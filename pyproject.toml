@@ -1,0 +1,57 @@
+# Fiche d'identité du projet et réglages des outils (ruff, mypy, pytest).
+# Les bibliothèques lourdes (pythonocc-core, PySide6) sont installées par conda :
+# voir environment.yml. Elles ne sont donc pas listées dans « dependencies ».
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cao-simplifiee"
+version = "0.1.0"
+description = "Modeleur 3D paramétrique simplifié : pièce, assemblage, mise en plan"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Simon" }]
+dependencies = []
+
+[project.scripts]
+cao = "cao.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# --- Ruff : formatage et détection d'erreurs ---
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "RUF"]
+# Textes en français : les signes ×, ’, « » sont voulus, pas des erreurs.
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+# Qt impose des noms de méthodes en camelCase (paintEvent, mouseMoveEvent…).
+"src/cao/ihm/**" = ["N802"]
+"prototypes/**" = ["N802", "E402"]
+
+# --- mypy : vérification des types ---
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+packages = ["cao"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["python_solvespace.*"]
+ignore_missing_imports = true
+
+# --- pytest : tests automatiques ---
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"

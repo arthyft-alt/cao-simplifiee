@@ -36,8 +36,12 @@
 - Python 3.11 dans un environnement conda nommé `cao` (installé avec Miniforge).
 - PySide6 (Qt 6) pour l'interface.
 - pythonocc-core (OpenCascade) pour la géométrie, **uniquement via `src/cao/noyau`**.
-- python-solvespace pour les esquisses (PROVISOIRE : choix du solveur encore ouvert, voir PLAN.md).
-- pytest, ruff, mypy. Git pour l'historique.
+- python-solvespace pour les esquisses (décision du 2026-10-31).
+- pytest, ruff, mypy (mode strict pour `src/cao`). Git pour l'historique.
+- Licence du logiciel : **GPL 3 ou ultérieure** (fichier `LICENSE`) ; toute bibliothèque ajoutée doit être compatible.
+
+Commandes (environnement `cao`) : `python -m cao`, `pytest`, `ruff check .`, `ruff format .`, `mypy`.
+Architecture : `docs/architecture.md` ; ses règles d'import sont vérifiées par `tests/test_structure.py`.
 
 ## 5. Règles de développement
 
@@ -47,7 +51,8 @@
 - Les paquets `noyau`, `esquisse`, `piece`, `assemblage`, `plan` n'importent jamais Qt.
 - Chemins avec `pathlib`, aucun code propre à un système.
 - Noms de variables et commentaires en français.
-- Avant chaque commit : lancer **tous** les tests et `ruff check`.
+- Avant chaque commit : lancer **tous** les tests, `ruff check .` et `mypy`.
+- Mettre à jour `docs/architecture.md` quand un paquet ou un module important est ajouté.
 - Pour OpenCascade, ne jamais inventer une fonction : vérifier dans les exemples officiels de pythonocc-core.
 
 ## 6. `PLAN.md` — la mémoire du projet
