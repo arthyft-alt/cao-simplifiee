@@ -3,9 +3,9 @@
 ## Où en est-on ?
 
 - **Date :** 2026-10-31
-- **Phase en cours :** Phase 0 — Prototypes
-- **Dernière étape validée :** 0.4 (solveur : rectangle 80 × 30 exact, 0 degré de liberté)
-- **Prochaine étape :** 0.5 (projeter la boîte en vue de face avec l'algorithme HLR, traits vus et cachés dessinés dans Qt) — dernière étape de la phase 0
+- **Phase en cours :** Lot 1 — Socle (pas encore commencé)
+- **Dernière étape validée :** 0.5 — phase 0 terminée le 2026-10-31, toutes les briques techniques validées sous Windows
+- **Prochaine étape :** Lot 1 étape 1.1 (squelette `src/cao`, pyproject.toml, ruff, mypy, pytest, premier test)
 
 ## Contexte
 
@@ -31,7 +31,7 @@
 
 | Lot | Contenu | Exigences | État |
 | --- | --- | --- | --- |
-| 0. Prototypes | Cube affiché, extrusion + STEP, solveur, vue HLR | — | En cours (0.1 à 0.4 faites, 0.5 à faire) |
+| 0. Prototypes | Cube affiché, extrusion + STEP, solveur, vue HLR | — | Terminé (2026-10-31) |
 | 1. Socle | Fenêtre, navigation 3D, arbre, fichiers | IHM, ARB, DOC (P1) | À faire |
 | 2. Esquisse | Entités, relations, solveur, cotation | ESQ, GEO, OUT, REL, COT (P1) | À faire |
 | 3. Fonctions | Extrusions, révolutions, congés, répétitions | VOL, HAB, REP, REF, PRO (P1) | À faire |
@@ -48,4 +48,4 @@
 
 ## Journal des séances
 
-- **2026-10-31 :** lecture des documents, réécriture de CLAUDE.md, création de PLAN.md et du dossier docs/. Installation de Miniforge, création de l'environnement `cao`, vérification : import OCC + PySide6 + solvespace OK, boîte 100×50×20 créée. Dépôt Git initialisé, premier commit. Décision : documents d'origine laissés à la racine. Prototype 0.2 écrit et lancé automatiquement sans erreur ; navigation façon SolidWorks (molette = rotation, Ctrl + molette = panoramique). 0.2 validée par Simon et commitée. Prototype 0.3 : plaque 100×50×20 percée Ø10, export STEP, volumes conformes ; ouvert dans FreeCAD par Simon, commité. Prototype 0.4 : rectangle contraint résolu exactement par python-solvespace (0 degré de liberté ; 1 sans la cote de hauteur), commité.
+- **2026-10-31 :** lecture des documents, réécriture de CLAUDE.md, création de PLAN.md et du dossier docs/. Installation de Miniforge, création de l'environnement `cao`, vérification : import OCC + PySide6 + solvespace OK, boîte 100×50×20 créée. Dépôt Git initialisé, premier commit. Décision : documents d'origine laissés à la racine. Prototype 0.2 écrit et lancé automatiquement sans erreur ; navigation façon SolidWorks (molette = rotation, Ctrl + molette = panoramique). 0.2 validée par Simon et commitée. Prototype 0.3 : plaque 100×50×20 percée Ø10, export STEP, volumes conformes ; ouvert dans FreeCAD par Simon, commité. Prototype 0.4 : rectangle contraint résolu exactement par python-solvespace (0 degré de liberté ; 1 sans la cote de hauteur), commité. Prototype 0.5 : vue de face HLR, arêtes vues en continu fort et cachées en interrompu fin ; note : HLR classe aussi en cachées les arêtes arrière superposées aux arêtes vues, à masquer sous le trait vu en mise en plan. 0.5 validée visuellement par Simon, commitée. Phase 0 terminée.
