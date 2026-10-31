@@ -4,9 +4,8 @@
 
 - **Date :** 2026-10-31
 - **Phase en cours :** Phase 0 — Prototypes
-- **Dernière étape validée :** 0.2 (commit 1ad7acd, validé à la main par Simon)
-- **Étape en cours :** 0.3 — `prototypes/extrusion_step.py` écrit et lancé : volume exact (98 429,20 mm³), STEP AP214 relu sans écart ; reste l'ouverture dans FreeCAD par Simon (FreeCAD pas encore installé)
-- **Prochaine étape :** commit de 0.3 après validation, puis 0.4 (rectangle contraint avec python-solvespace)
+- **Dernière étape validée :** 0.4 (solveur : rectangle 80 × 30 exact, 0 degré de liberté)
+- **Prochaine étape :** 0.5 (projeter la boîte en vue de face avec l'algorithme HLR, traits vus et cachés dessinés dans Qt) — dernière étape de la phase 0
 
 ## Contexte
 
@@ -32,7 +31,7 @@
 
 | Lot | Contenu | Exigences | État |
 | --- | --- | --- | --- |
-| 0. Prototypes | Cube affiché, extrusion + STEP, solveur, vue HLR | — | En cours (0.1 et 0.2 faites, 0.3 en essai) |
+| 0. Prototypes | Cube affiché, extrusion + STEP, solveur, vue HLR | — | En cours (0.1 à 0.4 faites, 0.5 à faire) |
 | 1. Socle | Fenêtre, navigation 3D, arbre, fichiers | IHM, ARB, DOC (P1) | À faire |
 | 2. Esquisse | Entités, relations, solveur, cotation | ESQ, GEO, OUT, REL, COT (P1) | À faire |
 | 3. Fonctions | Extrusions, révolutions, congés, répétitions | VOL, HAB, REP, REF, PRO (P1) | À faire |
@@ -49,4 +48,4 @@
 
 ## Journal des séances
 
-- **2026-10-31 :** lecture des documents, réécriture de CLAUDE.md, création de PLAN.md et du dossier docs/. Installation de Miniforge, création de l'environnement `cao`, vérification : import OCC + PySide6 + solvespace OK, boîte 100×50×20 créée. Dépôt Git initialisé, premier commit. Décision : documents d'origine laissés à la racine. Prototype 0.2 écrit et lancé automatiquement sans erreur ; navigation façon SolidWorks (molette = rotation, Ctrl + molette = panoramique). 0.2 validée par Simon et commitée. Prototype 0.3 : plaque 100×50×20 percée Ø10, export STEP, volumes conformes.
+- **2026-10-31 :** lecture des documents, réécriture de CLAUDE.md, création de PLAN.md et du dossier docs/. Installation de Miniforge, création de l'environnement `cao`, vérification : import OCC + PySide6 + solvespace OK, boîte 100×50×20 créée. Dépôt Git initialisé, premier commit. Décision : documents d'origine laissés à la racine. Prototype 0.2 écrit et lancé automatiquement sans erreur ; navigation façon SolidWorks (molette = rotation, Ctrl + molette = panoramique). 0.2 validée par Simon et commitée. Prototype 0.3 : plaque 100×50×20 percée Ø10, export STEP, volumes conformes ; ouvert dans FreeCAD par Simon, commité. Prototype 0.4 : rectangle contraint résolu exactement par python-solvespace (0 degré de liberté ; 1 sans la cote de hauteur), commité.
