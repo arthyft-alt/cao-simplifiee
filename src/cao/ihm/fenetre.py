@@ -45,7 +45,8 @@ from cao.ihm.icones import icone
 from cao.ihm.ruban import BarreAffichage, Ruban
 from cao.ihm.theme import appliquer_theme
 from cao.ihm.vue3d import Vue3D
-from cao.noyau.affichage import ModeRendu, VueStandard
+from cao.noyau.affichage import FiltreSelection, ModeRendu, VueStandard
+from cao.noyau.mesure import Forme, formater, mesurer
 
 DUREE_MESSAGE_MS = 4000
 HAUTEUR_PETIT_ECRAN = 800  # pixels utiles : en dessous, ruban sans grandes icônes
@@ -57,6 +58,8 @@ class CommandesVue(Protocol):
     def orienter(self, vue_standard: VueStandard) -> None: ...
     def ajuster(self) -> None: ...
     def changer_mode_rendu(self, mode: ModeRendu) -> None: ...
+    def changer_filtre(self, filtre: FiltreSelection) -> None: ...
+    def vue_normale(self) -> bool: ...
 
 
 def hauteur_ecran_disponible() -> int:
@@ -126,8 +129,11 @@ class FenetreDocument(QMainWindow):
         self._creer_barre_etat()
         self.ruban.outil_demande.connect(self.executer_commande)
         self.commandes: dict[str, Callable[[], None]] = {}
+        self.selection: list[Forme] = []
+        self.commandes["mesurer"] = self.ouvrir_mesure
         if isinstance(self.zone_graphique, Vue3D):
             self.brancher_commandes_vue(self.zone_graphique)
+            self.zone_graphique.selection_changee.connect(self.selection_changee)
         self._dimensionner_selon_ecran()
 
     def _dimensionner_selon_ecran(self) -> None:
@@ -221,6 +227,11 @@ class FenetreDocument(QMainWindow):
         self.pastilles: list[QLabel] = []
         barre = self.statusBar()
         barre.setSizeGripEnabled(False)
+        # Mesure rapide de la sélection (IHM-12), cachée quand il n'y a rien à mesurer.
+        self.pastille_mesure = QLabel()
+        self.pastille_mesure.setObjectName("pastille_mesure")
+        self.pastille_mesure.setVisible(False)
+        barre.addPermanentWidget(self.pastille_mesure)
         for texte in textes.ETAT_PAR_TYPE[self.type_document]:
             pastille = QLabel(texte)
             pastille.setObjectName("pastille")
@@ -241,7 +252,27 @@ class FenetreDocument(QMainWindow):
             self.commandes[f"vue_{nom_vue.value}"] = partial(vue.orienter, nom_vue)
         for mode in ModeRendu:
             self.commandes[f"rendu_{mode.value}"] = partial(vue.changer_mode_rendu, mode)
+        for filtre in FiltreSelection:
+            self.commandes[f"filtre_{filtre.value}"] = partial(vue.changer_filtre, filtre)
         self.commandes["ajuster"] = vue.ajuster
+        self.commandes["vue_normale"] = partial(self._vue_normale, vue)
+
+    def _vue_normale(self, vue: CommandesVue) -> None:
+        if not vue.vue_normale():
+            self.statusBar().showMessage(textes.VUE_NORMALE_IMPOSSIBLE, DUREE_MESSAGE_MS)
+
+    def ouvrir_mesure(self) -> None:
+        """Évaluer > Mesurer : le panneau de mesure remplace l'arbre (IHM-12)."""
+        self.panneau_gauche.montrer_mesure()
+        self.selection_changee(self.selection)
+
+    def selection_changee(self, formes: list[Forme]) -> None:
+        """Nouvelle sélection : mesure rapide dans la barre d'état et le panneau de mesure."""
+        self.selection = formes
+        valeurs = mesurer(formes)
+        self.pastille_mesure.setText("   ".join(formater(v) for v in valeurs))
+        self.pastille_mesure.setVisible(bool(valeurs))
+        self.panneau_gauche.mesure.afficher(valeurs, len(formes))
 
     def executer_commande(self, commande: str, nom_outil: str) -> None:
         """Exécute la commande d'un outil, ou annonce qu'elle n'est pas encore programmée."""

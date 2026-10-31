@@ -30,11 +30,18 @@ from OCC.Core.Graphic3d import (
     Graphic3d_TransformPers,
     Graphic3d_Vec2i,
 )
-from OCC.Core.Prs3d import Prs3d_IsoAspect, Prs3d_LineAspect
+from OCC.Core.Prs3d import (
+    Prs3d_IsoAspect,
+    Prs3d_LineAspect,
+    Prs3d_TypeOfHighlight_Dynamic,
+    Prs3d_TypeOfHighlight_LocalDynamic,
+    Prs3d_TypeOfHighlight_LocalSelected,
+    Prs3d_TypeOfHighlight_Selected,
+)
 from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB
+from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
 from OCC.Core.TopoDS import TopoDS_Shape
 from OCC.Core.V3d import (
-    V3d_DirectionalLight,
     V3d_TypeOfOrientation,
     V3d_TypeOfOrientation_Yup_AxoRight,
     V3d_TypeOfOrientation_Yup_Back,
@@ -98,9 +105,15 @@ MARGE_CUBE_PX = 80
 
 
 # Apparence par défaut des pièces (la matière choisie par l'utilisateur viendra au lot 3).
-COULEUR_PIECE = (0.70, 0.75, 0.82)  # gris bleuté
+COULEUR_PIECE = (0.60, 0.65, 0.73)  # gris bleuté
 COULEUR_TRAITS = (0.11, 0.14, 0.19)  # gris très foncé, presque noir
 EPAISSEUR_TRAITS = 1.4
+COULEUR_SURVOL = (0.40, 0.65, 1.00)  # bleu clair
+COULEUR_SELECTION = (0.15, 0.39, 0.92)  # bleu franc
+INTENSITE_AMBIANTE = 0.55
+# Direction du phare dans le repère de la caméra (essais du 2026-10-31 : dessus clair,
+# face moyenne, côté droit sombre en vue isométrique).
+DIRECTION_PHARE = (0.45, -0.55, -1.0)
 
 
 def _couleur(rvb: tuple[float, float, float]) -> Quantity_Color:
@@ -131,27 +144,45 @@ def configurer_apparence(contexte: AIS_InteractiveContext) -> None:
     # Pas de lignes « isoparamétriques » (traits internes aux faces courbes).
     dessin.SetUIsoAspect(Prs3d_IsoAspect(trait, Aspect_TOL_SOLID, 1.0, 0))
     dessin.SetVIsoAspect(Prs3d_IsoAspect(trait, Aspect_TOL_SOLID, 1.0, 0))
+    # Surbrillance (IHM-04) : bleu clair au survol, bleu franc pour la sélection.
+    # Les faces sont remplies de couleur (mode ombré), en semi-transparence.
+    styles = [
+        (Prs3d_TypeOfHighlight_Dynamic, COULEUR_SURVOL, 0.5),
+        (Prs3d_TypeOfHighlight_LocalDynamic, COULEUR_SURVOL, 0.5),
+        (Prs3d_TypeOfHighlight_Selected, COULEUR_SELECTION, 0.35),
+        (Prs3d_TypeOfHighlight_LocalSelected, COULEUR_SELECTION, 0.35),
+    ]
+    for type_surbrillance, couleur, transparence in styles:
+        style = contexte.HighlightStyle(type_surbrillance)
+        style.SetColor(_couleur(couleur))
+        style.SetDisplayMode(AIS_Shaded)
+        style.SetTransparency(transparence)
 
 
 def configurer_eclairage(visualiseur: V3d_Viewer) -> None:
-    """Ajoute une lumière principale venant d'en haut à gauche.
+    """Règle les deux lumières d'origine du visualiseur (phare + ambiante).
 
-    L'éclairage d'origine vient de l'œil : en vue isométrique, les trois faces
-    visibles d'un bloc ont alors la même teinte et le volume ne se lit pas.
-    Cette lumière suit la caméra (« headlight ») et donne une teinte différente
-    à chaque face, quelle que soit la vue. Les lumières d'origine sont gardées
-    (pythonocc ne permet pas de les parcourir pour les retirer).
+    Le phare suit la caméra ; on l'incline pour qu'il éclaire surtout le dessus
+    des pièces : chaque face a ainsi une
+    teinte différente, quelle que soit la vue. La lumière ambiante est
+    adoucie pour que les faces vues de face ne saturent pas en blanc.
+
+    pythonocc ne sait pas parcourir la liste des lumières (et la vider la vide
+    réellement) : on n'atteint que la première (phare) et la dernière (ambiante).
     """
-    principale = V3d_DirectionalLight(gp_Dir(-0.5, -0.8, -0.6), _couleur((1.0, 1.0, 1.0)), True)
-    principale.SetIntensity(0.55)
-    visualiseur.AddLight(principale)
-    visualiseur.SetLightOn(principale)
+    lumieres = visualiseur.ActiveLights()
+    if lumieres.Size() != 2:
+        return  # configuration inattendue : on garde l'éclairage d'origine
+    phare, ambiante = lumieres.First(), lumieres.Last()
+    phare.SetDirection(gp_Dir(*DIRECTION_PHARE))
+    ambiante.SetIntensity(INTENSITE_AMBIANTE)
 
 
 def afficher_forme(contexte: AIS_InteractiveContext, forme: TopoDS_Shape) -> AIS_Shape:
     """Affiche une forme avec l'apparence du logiciel (matière et traits par défaut)."""
     presentation = AIS_Shape(forme)
     contexte.Display(presentation, True)
+    activer_selection(contexte, presentation, FiltreSelection.TOUT)
     return presentation
 
 
@@ -235,3 +266,61 @@ def appliquer_mode_rendu(contexte: AIS_InteractiveContext, vue: V3d_View, mode: 
     for objet in objets:
         contexte.Redisplay(objet, False)
     contexte.UpdateCurrentViewer()
+
+
+class FiltreSelection(Enum):
+    """Ce que le clic peut sélectionner (filtre de sélection, IHM-04)."""
+
+    TOUT = "tout"
+    FACES = "faces"
+    ARETES = "aretes"
+    SOMMETS = "sommets"
+
+
+GENRES_FILTRE = {
+    FiltreSelection.TOUT: (TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX),
+    FiltreSelection.FACES: (TopAbs_FACE,),
+    FiltreSelection.ARETES: (TopAbs_EDGE,),
+    FiltreSelection.SOMMETS: (TopAbs_VERTEX,),
+}
+
+
+def activer_selection(
+    contexte: AIS_InteractiveContext, presentation: AIS_Shape, filtre: FiltreSelection
+) -> None:
+    """Rend sélectionnables les faces, arêtes et/ou sommets d'une forme affichée."""
+    contexte.Deactivate(presentation)
+    for genre in GENRES_FILTRE[filtre]:
+        contexte.Activate(presentation, AIS_Shape.SelectionMode(genre), False)
+
+
+def appliquer_filtre(contexte: AIS_InteractiveContext, filtre: FiltreSelection) -> None:
+    """Applique le filtre à toutes les formes affichées (le cube de vue n'est pas touché)."""
+    contexte.ClearSelected(False)
+    objets = AIS_ListOfInteractive()
+    contexte.DisplayedObjects(objets)
+    for objet in objets:
+        if objet.IsKind("AIS_Shape"):
+            activer_selection(contexte, AIS_Shape.DownCast(objet), filtre)
+    contexte.UpdateCurrentViewer()
+
+
+def formes_selectionnees(contexte: AIS_InteractiveContext) -> list[TopoDS_Shape]:
+    """Faces, arêtes et sommets actuellement sélectionnés."""
+    formes = []
+    contexte.InitSelected()
+    while contexte.MoreSelected():
+        if contexte.HasSelectedShape():
+            formes.append(contexte.SelectedShape())
+        contexte.NextSelected()
+    return formes
+
+
+def orienter_normale(vue: V3d_View, normale: gp_Dir) -> None:
+    """Regarde une face plane de face, depuis l'extérieur de la matière (IHM-02)."""
+    vue.SetProj(normale.X(), normale.Y(), normale.Z())
+    # Haut de l'écran : l'axe Y, sauf si l'on regarde le long de Y (on prend alors -Z).
+    haut = (0.0, 0.0, -1.0) if abs(normale.Y()) > 0.99 else (0.0, 1.0, 0.0)
+    vue.SetUp(*haut)
+    vue.FitAll(0.1, True)
+    vue.Redraw()

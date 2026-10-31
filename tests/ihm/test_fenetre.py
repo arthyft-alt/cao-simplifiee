@@ -88,7 +88,7 @@ def test_panneau_proprietes_remplace_arbre(fenetre: FenetreDocument) -> None:
 def test_barre_affichage_vues_standard(fenetre: FenetreDocument) -> None:
     assert fenetre.barre_affichage is not None
     noms = [a.text() for a in fenetre.barre_affichage.actions_vues()]
-    assert noms == ["Isométrique", "Face", "Dessus", "Droite", "Ajuster"]
+    assert noms == ["Isométrique", "Face", "Dessus", "Droite", "Normale à", "Ajuster"]
 
 
 def test_barre_etat_piece(fenetre: FenetreDocument) -> None:

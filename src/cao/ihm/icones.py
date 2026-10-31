@@ -97,6 +97,15 @@ DESSINS: dict[str, str] = {
     "origine": '<path d="M5 19V5M5 19h14"/><path d="m3 7 2-2 2 2M17 17l2 2-2 2"/>'
     '<circle cx="5" cy="19" r="1.5" fill="{trait}"/>',
     "recherche": '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
+    "vue_normale": '<path d="M4 16 10 8h10l-6 8z" fill="{fond}"/><path d="M12 12V2"/>'
+    '<path d="m9 5 3-3 3 3"/>',
+    "sel_tout": '<path d="m5 3 14 7-6 2-2 6z" fill="{fond}"/>',
+    "sel_face": '<rect x="4" y="4" width="16" height="16" rx="2" fill="{trait}" opacity=".35"/>'
+    '<rect x="4" y="4" width="16" height="16" rx="2"/>',
+    "sel_arete": '<rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="2 2.5"/>'
+    '<path d="M4 20 20 4" stroke-width="2.6"/>',
+    "sel_sommet": '<rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="2 2.5"/>'
+    '<circle cx="20" cy="4" r="2.6" fill="{trait}"/>',
     "note": '<path d="M4 4h16v12H10l-4 4v-4H4z" fill="{fond}"/><path d="M8 8h8M8 12h5"/>',
     "interference": '<rect x="3" y="3" width="11" height="11" rx="1.5"/>'
     '<rect x="10" y="10" width="11" height="11" rx="1.5"/>'

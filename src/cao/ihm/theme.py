@@ -114,6 +114,12 @@ QPushButton#bouton_secondaire {{ background: {c["surface"]}; border: 1px solid {
         border-radius: 8px; padding: 7px 18px; }}
 QPushButton#bouton_secondaire:hover {{ background: {c["survol"]}; }}
 
+QLabel#pastille_mesure {{ background: {c["accent_pale"]}; color: {c["accent_fonce"]};
+        border-radius: 9px; padding: 1px 10px; margin: 3px 3px; font-weight: 600; }}
+QLabel#consigne_panneau {{ color: {c["texte_doux"]}; }}
+QLabel#resultats_mesure {{ font-size: {taille_police + 1}pt; line-height: 150%; }}
+QToolButton#bouton_filtre {{ padding: 3px 4px; }}
+
 QToolTip {{ background: {c["texte"]}; color: #ffffff; border: none; padding: 6px 8px;
         border-radius: 6px; }}
 """

@@ -22,6 +22,9 @@ Comme dans SolidWorks, **pièce**, **assemblage** et **mise en plan** sont trois
 - `ihm/vue3d.py` reçoit les événements Qt et les convertit en **pixels réels** (`devicePixelRatioF`) avant de les passer à OpenCascade : indispensable sur un écran agrandi par Windows.
 - `noyau/affichage.py` fait tous les calculs de vue ; il reçoit la `V3d_View` et l'`AIS_InteractiveContext`.
 - Les commandes du ruban et de la barre d'affichage ont un identifiant (`Outil.commande`) ; la fenêtre les relie aux méthodes de la vue (`FenetreDocument.brancher_commandes_vue`). Une commande sans identifiant affiche « Pas encore disponible ».
+- Sélection (IHM-04) : clic = sélectionner, Ctrl + clic = ajouter/retirer ; filtre Tout / Faces / Arêtes / Sommets ; la vue émet `selection_changee(list)`, la fenêtre affiche la mesure rapide dans la barre d'état et le panneau Mesure.
+- Hors du noyau, une forme OpenCascade se désigne par le type `cao.noyau.mesure.Forme` (pas d'import d'OCC.Core).
+- Éclairage : on règle les deux lumières d'origine (phare + ambiante) ; ne jamais vider `Viewer.ActiveLights()` (pythonocc renvoie la vraie liste).
 - Pour afficher une forme, utiliser `noyau.affichage.afficher_forme` (et non `DisplayShape` de pythonocc, qui impose sa propre matière).
 
 ## Paquets
@@ -54,7 +57,8 @@ src/cao/
 ├── noyau/  esquisse/  piece/  assemblage/  plan/  fichiers/
 ├── noyau/
 │   └── affichage.py  vue 3D : orientations (Y vers le haut), cube de vue, zoom au point,
-│                     modes de rendu, apparence et éclairage (sans Qt)
+│                     modes de rendu, apparence et éclairage, sélection et filtre (sans Qt)
+│   └── mesure.py     mesure rapide (IHM-12) : longueur, aire, rayon, distance, angle
 ├── fichiers/
 │   └── types_documents.py  les 3 types de documents (DOC-01), numérotation Pièce1, Assemblage1…
 └── ihm/
@@ -69,6 +73,7 @@ src/cao/
     ├── arbre.py     arbre de construction / panneau de propriétés (même emplacement)
     ├── vue3d.py     visualiseur OpenCascade, navigation à la molette
     └── panneaux/
+        └── mesure.py  panneau « Mesure » (remplace l'arbre pendant la mesure)
 tests/               même découpage que src/cao
 ├── conftest.py      tests d'interface sans écran (Qt « offscreen »)
 └── ihm/             la fenêtre est testée avec avec_vue3d=False (pas de carte graphique en test)

@@ -7,7 +7,7 @@ import pytest
 from cao.fichiers.types_documents import TypeDocument
 from cao.ihm import textes
 from cao.ihm.fenetre import FenetreDocument
-from cao.noyau.affichage import ModeRendu, VueStandard
+from cao.noyau.affichage import FiltreSelection, ModeRendu, VueStandard
 
 
 class VueFactice:
@@ -24,6 +24,15 @@ class VueFactice:
 
     def changer_mode_rendu(self, mode: ModeRendu) -> None:
         self.appels.append(("rendu", mode))
+
+    def changer_filtre(self, filtre: FiltreSelection) -> None:
+        self.appels.append(("filtre", filtre))
+
+    def vue_normale(self) -> bool:
+        self.appels.append(("normale", None))
+        return self.face_plane_selectionnee
+
+    face_plane_selectionnee = False
 
 
 @pytest.fixture
@@ -54,6 +63,7 @@ def test_raccourcis_des_vues_comme_solidworks(
         "Face": "Ctrl+1",
         "Dessus": "Ctrl+5",
         "Droite": "Ctrl+4",
+        "Normale à": "Ctrl+8",
         "Ajuster": "F",
     }
 
@@ -84,3 +94,78 @@ def test_commande_inconnue_annonce_bientot(
     fenetre.executer_commande("", "Ligne")
     assert vue.appels == []
     assert fenetre.statusBar().currentMessage() == textes.message_bientot("Ligne")
+
+
+# --- Étape 1.4 : sélection, filtre, mesure rapide ---
+
+
+def _aretes_d_une_boite() -> list[object]:
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCC.Core.TopAbs import TopAbs_EDGE
+    from OCC.Core.TopExp import TopExp_Explorer
+
+    explorateur = TopExp_Explorer(BRepPrimAPI_MakeBox(100.0, 50.0, 20.0).Shape(), TopAbs_EDGE)
+    aretes = []
+    while explorateur.More():
+        aretes.append(explorateur.Current())
+        explorateur.Next()
+    return aretes
+
+
+def test_filtre_de_selection(fenetre_et_vue: tuple[FenetreDocument, VueFactice]) -> None:
+    fenetre, vue = fenetre_et_vue
+    assert fenetre.barre_affichage is not None
+    arete = next(a for a in fenetre.barre_affichage.actions_filtre if a.text() == "Arêtes")
+    arete.trigger()
+    assert vue.appels == [("filtre", FiltreSelection.ARETES)]
+    assert arete.isChecked()
+
+
+def test_normale_sans_face_plane_affiche_un_message(
+    fenetre_et_vue: tuple[FenetreDocument, VueFactice],
+) -> None:
+    fenetre, vue = fenetre_et_vue
+    fenetre.executer_commande("vue_normale", "Normale à")
+    assert vue.appels == [("normale", None)]
+    assert fenetre.statusBar().currentMessage() == textes.VUE_NORMALE_IMPOSSIBLE
+
+
+def test_mesure_rapide_dans_la_barre_d_etat(
+    fenetre_et_vue: tuple[FenetreDocument, VueFactice],
+) -> None:
+    fenetre, _ = fenetre_et_vue
+    fenetre.show()
+    arete_100 = next(a for a in _aretes_d_une_boite() if round(_longueur(a)) == 100)
+    fenetre.selection_changee([arete_100])
+    assert fenetre.pastille_mesure.isVisible()
+    assert fenetre.pastille_mesure.text() == "Longueur : 100,00 mm"
+    fenetre.selection_changee([])
+    assert not fenetre.pastille_mesure.isVisible()
+
+
+def test_bouton_mesurer_ouvre_le_panneau(
+    fenetre_et_vue: tuple[FenetreDocument, VueFactice],
+) -> None:
+    fenetre, _ = fenetre_et_vue
+    fenetre.executer_commande("mesurer", "Mesurer")
+    assert fenetre.panneau_gauche.montre_mesure()
+    aretes = _aretes_d_une_boite()
+    fenetre.selection_changee(aretes[:2])
+    assert "Distance" in fenetre.panneau_gauche.mesure.texte()
+    fenetre.selection_changee(aretes[:3])
+    assert fenetre.panneau_gauche.mesure.texte() == textes.MESURE_RIEN
+
+
+def test_fermer_le_panneau_de_mesure_rend_l_arbre(
+    fenetre_et_vue: tuple[FenetreDocument, VueFactice],
+) -> None:
+    fenetre, _ = fenetre_et_vue
+    fenetre.executer_commande("mesurer", "Mesurer")
+    fenetre.panneau_gauche.mesure.fermer_demande.emit()
+    assert fenetre.panneau_gauche.montre_arbre()
+
+
+def _longueur(arete: object) -> float:
+    from cao.noyau.mesure import mesurer
+
+    return next(v.valeur for v in mesurer([arete]) if v.nom == "Longueur")  # type: ignore[list-item]

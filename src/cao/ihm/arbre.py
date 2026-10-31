@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from cao.fichiers.types_documents import TypeDocument
 from cao.ihm import textes
 from cao.ihm.icones import icone
+from cao.ihm.panneaux.mesure import PanneauMesure
 
 ICONE_DOCUMENT: dict[TypeDocument, str] = {
     TypeDocument.PIECE: "piece",
@@ -95,8 +96,12 @@ class PanneauGauche(QStackedWidget):
         self.proprietes = PanneauProprietes()
         self._page_arbre = _avec_titre(textes.ARBRE_TITRE[type_document], self.arbre)
         self._page_proprietes = _avec_titre(textes.PANNEAU_PROPRIETES, self.proprietes)
+        self.mesure = PanneauMesure()
+        self.mesure.fermer_demande.connect(self.montrer_arbre)
+        self._page_mesure = _avec_titre(textes.MESURE_TITRE, self.mesure)
         self.addWidget(self._page_arbre)
         self.addWidget(self._page_proprietes)
+        self.addWidget(self._page_mesure)
         self.setMinimumWidth(200)
 
     def montre_arbre(self) -> bool:
@@ -107,3 +112,9 @@ class PanneauGauche(QStackedWidget):
 
     def montrer_proprietes(self) -> None:
         self.setCurrentWidget(self._page_proprietes)
+
+    def montre_mesure(self) -> bool:
+        return self.currentWidget() is self._page_mesure
+
+    def montrer_mesure(self) -> None:
+        self.setCurrentWidget(self._page_mesure)

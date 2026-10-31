@@ -189,7 +189,14 @@ _ANNOTATION = Onglet(
 
 
 def _evaluer(*supplementaires: Outil) -> Onglet:
-    outils = [Outil("Mesurer", "Mesurer une distance, un angle, un rayon ou une aire.", "mesurer")]
+    outils = [
+        Outil(
+            "Mesurer",
+            "Mesurer une distance, un angle, un rayon ou une aire entre entités sélectionnées.",
+            "mesurer",
+            "mesurer",
+        )
+    ]
     outils += supplementaires
     outils.append(Outil("Propriétés de masse", "Volume, masse, centre de gravité.", "masse"))
     return Onglet("Évaluer", [Groupe("Analyser", outils)])
@@ -236,8 +243,34 @@ BARRE_AFFICHAGE: Final[list[Outil]] = [
     Outil("Face", "Vue de face (plan XY).", "vue_face", "vue_face", "Ctrl+1"),
     Outil("Dessus", "Vue de dessus (plan XZ).", "vue_dessus", "vue_dessus", "Ctrl+5"),
     Outil("Droite", "Vue de droite (plan YZ).", "vue_droite", "vue_droite", "Ctrl+4"),
+    Outil(
+        "Normale à",
+        "Regarder la face plane sélectionnée de face.",
+        "vue_normale",
+        "vue_normale",
+        "Ctrl+8",
+    ),
     Outil("Ajuster", "Ajuster la vue au modèle.", "ajuster_vue", "ajuster", "F"),
 ]
+
+# --- Filtre de sélection (IHM-04), menu de la barre d'affichage ---
+FILTRE_TITRE: Final = "Filtre de sélection"
+FILTRES: Final[list[Outil]] = [
+    Outil("Tout", "Faces, arêtes et sommets.", "sel_tout", "filtre_tout"),
+    Outil("Faces", "Seulement les faces.", "sel_face", "filtre_faces"),
+    Outil("Arêtes", "Seulement les arêtes.", "sel_arete", "filtre_aretes"),
+    Outil("Sommets", "Seulement les sommets.", "sel_sommet", "filtre_sommets"),
+]
+VUE_NORMALE_IMPOSSIBLE: Final = "« Normale à » : sélectionnez d'abord une face plane."
+
+# --- Mesure (IHM-12) ---
+MESURE_TITRE: Final = "Mesure"
+MESURE_CONSIGNE: Final = (
+    "Cliquez sur une ou deux entités : face, arête ou sommet. "
+    "Ctrl + clic pour ajouter une deuxième entité."
+)
+MESURE_RIEN: Final = "Rien à mesurer pour cette sélection."
+MESURE_FERMER: Final = "Fermer"
 
 # --- Arbre de construction ---
 ARBRE_TITRE: Final[dict[TypeDocument, str]] = {

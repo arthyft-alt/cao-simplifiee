@@ -10,12 +10,14 @@ Il choisit la plus grande présentation qui tient sans déborder.
 """
 
 from dataclasses import dataclass
+from functools import partial
 
 from PySide6.QtCore import QSize, Qt, Signal, SignalInstance
-from PySide6.QtGui import QAction, QKeySequence, QResizeEvent
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QResizeEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
+    QMenu,
     QSizePolicy,
     QTabWidget,
     QToolBar,
@@ -203,10 +205,38 @@ class BarreAffichage(QToolBar):
         self.addWidget(espace_gauche)
         for outil in textes.BARRE_AFFICHAGE:
             self.addAction(creer_action(outil, self, self.outil_demande))
+        self.addSeparator()
+        self._creer_filtre()
         espace_droite = QWidget()
         espace_droite.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.addWidget(espace_droite)
 
+    def _creer_filtre(self) -> None:
+        """Menu déroulant du filtre de sélection : un seul choix actif à la fois."""
+        self.menu_filtre = QMenu(textes.FILTRE_TITRE, self)
+        groupe = QActionGroup(self)
+        groupe.setExclusive(True)
+        self.actions_filtre: list[QAction] = []
+        for outil in textes.FILTRES:
+            action = creer_action(outil, self, self.outil_demande)
+            action.setCheckable(True)
+            action.toggled.connect(partial(self._filtre_bascule, action))
+            groupe.addAction(action)
+            self.menu_filtre.addAction(action)
+            self.actions_filtre.append(action)
+        self.bouton_filtre = QToolButton()
+        self.bouton_filtre.setObjectName("bouton_filtre")
+        self.bouton_filtre.setMenu(self.menu_filtre)
+        self.bouton_filtre.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.bouton_filtre.setToolTip(f"<b>{textes.FILTRE_TITRE}</b>")
+        self.addWidget(self.bouton_filtre)
+        self.actions_filtre[0].setChecked(True)
+
+    def _filtre_bascule(self, action: QAction, actif: bool) -> None:
+        """Le bouton affiche l'icône du filtre actif."""
+        if actif:
+            self.bouton_filtre.setIcon(action.icon())
+
     def actions_vues(self) -> list[QAction]:
         """Les actions de vue, sans les espaces de centrage."""
-        return [a for a in self.actions() if a.text()]
+        return [a for a in self.actions() if a.text() and not a.isSeparator()]
