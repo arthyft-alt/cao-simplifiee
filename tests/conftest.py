@@ -20,3 +20,25 @@ def application_qt() -> Iterator[object]:
 
     application = QApplication.instance() or QApplication([])
     yield application
+
+
+@pytest.fixture(autouse=True)
+def dialogues_sans_attente(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Aucune fenêtre de dialogue ne doit attendre une réponse pendant les tests.
+
+    Par défaut : fermer sans enregistrer, ne rien choisir dans les sélecteurs de
+    fichiers, ne pas récupérer, et lever une erreur si un message d'erreur
+    inattendu devait s'afficher. Un test peut remplacer ces réponses.
+    """
+    from cao.ihm.fenetre import FenetreDocument
+    from cao.ihm.gestionnaire import GestionnaireDocuments
+
+    def erreur_inattendue(*arguments: object) -> None:
+        raise AssertionError(f"message d'erreur inattendu : {arguments[-2:]}")
+
+    monkeypatch.setattr(FenetreDocument, "demander_avant_fermeture", lambda self: "ignorer")
+    monkeypatch.setattr(FenetreDocument, "choisir_chemin_enregistrement", lambda self: None)
+    monkeypatch.setattr(FenetreDocument, "afficher_erreur", erreur_inattendue)
+    monkeypatch.setattr(GestionnaireDocuments, "choisir_fichier_a_ouvrir", lambda self, p: None)
+    monkeypatch.setattr(GestionnaireDocuments, "demander_recuperation", lambda self, noms: False)
+    monkeypatch.setattr(GestionnaireDocuments, "afficher_erreur", erreur_inattendue)

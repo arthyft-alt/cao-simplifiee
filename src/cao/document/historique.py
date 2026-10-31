@@ -148,3 +148,8 @@ class PileAnnulation:
     def marquer_enregistre(self) -> None:
         self._repere_enregistrement = len(self._faites)
         self._prevenir()
+
+    def oublier_enregistrement(self) -> None:
+        """Le document ne correspond plus à aucun fichier enregistré (ex. après récupération)."""
+        self._repere_enregistrement = None
+        self._prevenir()

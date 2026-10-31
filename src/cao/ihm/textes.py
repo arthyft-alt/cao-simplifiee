@@ -48,6 +48,38 @@ ACTION_FERMER: Final = "&Fermer"
 ACTION_QUITTER: Final = "&Quitter"
 RECHERCHE_COMMANDE: Final = "Rechercher…  Ctrl+K"
 
+# --- Enregistrer / ouvrir (étape 1.6) ---
+NOUVEAU_OUVRIR: Final = "Ouvrir un document…"
+TITRE_OUVRIR: Final = "Ouvrir un document"
+TITRE_ENREGISTRER_SOUS: Final = "Enregistrer sous"
+FILTRE_TOUS: Final = "Documents CAO"
+TITRE_ERREUR_OUVERTURE: Final = "Impossible d'ouvrir le document"
+TITRE_ERREUR_ENREGISTREMENT: Final = "Impossible d'enregistrer le document"
+TITRE_FERMETURE: Final = "Document modifié"
+BOUTON_ENREGISTRER: Final = "Enregistrer"
+BOUTON_NE_PAS_ENREGISTRER: Final = "Ne pas enregistrer"
+BOUTON_ANNULER: Final = "Annuler"
+TITRE_RECUPERATION: Final = "Récupération de documents"
+BOUTON_RECUPERER: Final = "Récupérer"
+BOUTON_IGNORER: Final = "Ignorer (supprimer les copies)"
+
+
+def message_enregistre(nom_fichier: str) -> str:
+    return f"Enregistré : {nom_fichier}"
+
+
+def question_fermeture(nom: str) -> str:
+    return f"« {nom} » a été modifié.\nEnregistrer les modifications avant de fermer ?"
+
+
+def question_recuperation(noms: list[str]) -> str:
+    liste = "\n".join(f"  • {nom}" for nom in noms)
+    return (
+        "Le logiciel s'est fermé de façon inattendue. Des copies automatiques "
+        f"de ces documents ont été trouvées :\n{liste}\n\nVoulez-vous les récupérer ?"
+    )
+
+
 # --- Annuler / rétablir (Ctrl+Z / Ctrl+Y) ---
 ANNULER: Final = "Annuler"
 RETABLIR: Final = "Rétablir"

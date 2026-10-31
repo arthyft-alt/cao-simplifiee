@@ -59,6 +59,7 @@ class DialogueNouveauDocument(QDialog):
         self.setWindowTitle(f"{textes.NOUVEAU_TITRE} — {textes.APPLICATION}")
         self.setWindowIcon(icone("piece"))
         self.choix: TypeDocument | None = None
+        self.ouvrir_fichier = False  # True : l'utilisateur veut ouvrir un fichier existant
 
         disposition = QVBoxLayout(self)
         disposition.setContentsMargins(28, 24, 28, 22)
@@ -78,12 +79,20 @@ class DialogueNouveauDocument(QDialog):
         disposition.addLayout(ligne)
 
         bas = QHBoxLayout()
+        ouvrir = QPushButton(textes.NOUVEAU_OUVRIR)
+        ouvrir.setObjectName("bouton_secondaire")
+        ouvrir.clicked.connect(self.choisir_ouvrir)
+        bas.addWidget(ouvrir)
         bas.addStretch()
         annuler = QPushButton(textes.NOUVEAU_ANNULER)
         annuler.setObjectName("bouton_secondaire")
         annuler.clicked.connect(self.reject)
         bas.addWidget(annuler)
         disposition.addLayout(bas)
+
+    def choisir_ouvrir(self) -> None:
+        self.ouvrir_fichier = True
+        self.accept()
 
     def choisir(self, type_document: TypeDocument) -> None:
         self.choix = type_document

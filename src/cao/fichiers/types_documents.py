@@ -23,7 +23,7 @@ class TypeDocument(Enum):
 class InfoType:
     libelle: str  # nom affiché (« Pièce »)
     nom_base: str  # base du nom par défaut (« Pièce » -> « Pièce1 »)
-    extension: str  # PROVISOIRE : extension de fichier, à confirmer à l'étape 1.6
+    extension: str  # extension de fichier (validée le 2026-10-31)
     vue_3d: bool  # True : zone graphique 3D ; False : feuille de dessin 2D
     description: str  # phrase d'explication dans la fenêtre « Nouveau document »
 

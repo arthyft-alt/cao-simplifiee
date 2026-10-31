@@ -20,17 +20,20 @@ Disposition :
 
 from collections.abc import Callable
 from functools import partial
+from pathlib import Path
 from typing import Protocol
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QStandardPaths, Qt, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
     QMenu,
+    QMessageBox,
     QSplitter,
     QToolButton,
     QVBoxLayout,
@@ -38,6 +41,7 @@ from PySide6.QtWidgets import (
 )
 
 from cao.document.document import Document, NomInvalide
+from cao.fichiers import format_natif
 from cao.fichiers.types_documents import INFOS, TypeDocument
 from cao.ihm import textes
 from cao.ihm.arbre import ICONE_DOCUMENT, PanneauGauche
@@ -63,6 +67,12 @@ class CommandesVue(Protocol):
     def vue_normale(self) -> bool: ...
 
 
+def dossier_documents() -> Path:
+    """Dossier « Documents » de l'utilisateur (Windows et Linux, TEC-09)."""
+    emplacement = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation)
+    return Path(emplacement) if emplacement else Path.home()
+
+
 def hauteur_ecran_disponible() -> int:
     ecran = QGuiApplication.primaryScreen()
     return ecran.availableGeometry().height() if ecran else 900
@@ -76,13 +86,16 @@ class FenetreDocument(QMainWindow):
     """
 
     nouveau_demande = Signal()  # Fichier > Nouveau : le gestionnaire ouvre le choix du type
+    ouvrir_demande = Signal()  # Fichier > Ouvrir : le gestionnaire choisit le fichier
     quitter_demande = Signal()  # Fichier > Quitter : fermer toutes les fenêtres
+    enregistre = Signal()  # le document vient d'être enregistré
 
     def __init__(
         self,
         type_document: TypeDocument = TypeDocument.PIECE,
         nom_document: str | None = None,
         avec_vue3d: bool = True,
+        document: Document | None = None,
     ) -> None:
         super().__init__()
         application = QApplication.instance()
@@ -91,7 +104,8 @@ class FenetreDocument(QMainWindow):
 
         self.type_document = type_document
         info = INFOS[type_document]
-        self.document = Document(type_document, nom_document or f"{info.nom_base}1")
+        # Document ouvert depuis un fichier, ou nouveau document vide.
+        self.document = document or Document(type_document, nom_document or f"{info.nom_base}1")
         self.setWindowTitle(textes.titre_fenetre(self.nom_document, info.libelle))
         self.setWindowIcon(icone(ICONE_DOCUMENT[type_document]))
         self.setMinimumSize(900, 600)  # tient sur un écran 1366 × 768 (TEC-14)
@@ -165,14 +179,16 @@ class FenetreDocument(QMainWindow):
         self.action_nouveau.triggered.connect(self.nouveau_demande.emit)
         self.menu_fichier.addAction(self.action_nouveau)
 
-        for nom, raccourci in [
-            (textes.ACTION_OUVRIR, QKeySequence.StandardKey.Open),
-            (textes.ACTION_ENREGISTRER, QKeySequence.StandardKey.Save),
-            (textes.ACTION_ENREGISTRER_SOUS, QKeySequence.StandardKey.SaveAs),
-        ]:
-            action = QAction(nom, self)
-            action.setShortcut(raccourci)
-            action.setEnabled(False)  # gestion des fichiers : étape 1.6
+        self.action_ouvrir = QAction(textes.ACTION_OUVRIR, self)
+        self.action_ouvrir.setShortcut(QKeySequence.StandardKey.Open)
+        self.action_ouvrir.triggered.connect(self.ouvrir_demande.emit)
+        self.action_enregistrer = QAction(textes.ACTION_ENREGISTRER, self)
+        self.action_enregistrer.setShortcut(QKeySequence.StandardKey.Save)
+        self.action_enregistrer.triggered.connect(self.enregistrer)
+        self.action_enregistrer_sous = QAction(textes.ACTION_ENREGISTRER_SOUS, self)
+        self.action_enregistrer_sous.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        self.action_enregistrer_sous.triggered.connect(self.enregistrer_sous)
+        for action in (self.action_ouvrir, self.action_enregistrer, self.action_enregistrer_sous):
             self.menu_fichier.addAction(action)
         self.menu_fichier.addSeparator()
 
@@ -230,6 +246,11 @@ class FenetreDocument(QMainWindow):
         return zone
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self.document.modifie:
+            choix = self.demander_avant_fermeture()
+            if choix == "annuler" or (choix == "enregistrer" and not self.enregistrer()):
+                event.ignore()  # l'utilisateur garde la fenêtre ouverte
+                return
         # La vue 3D doit libérer OpenGL avant que la fenêtre Windows disparaisse.
         liberer = getattr(self.zone_graphique, "liberer", None)
         if callable(liberer):
@@ -356,6 +377,69 @@ class FenetreDocument(QMainWindow):
         self.action_retablir.setToolTip(
             textes.info_retablir(historique.libelle_retablir) + "  (Ctrl+Y)"
         )
+
+    # --- Enregistrer (étape 1.6) ---
+
+    def enregistrer(self) -> bool:
+        """Ctrl+S : enregistre dans son fichier, ou demande où (premier enregistrement)."""
+        if self.document.chemin is None:
+            return self.enregistrer_sous()
+        return self._ecrire(self.document.chemin)
+
+    def enregistrer_sous(self) -> bool:
+        chemin = self.choisir_chemin_enregistrement()
+        if chemin is None:
+            return False  # l'utilisateur a annulé
+        attendu = format_natif.extension(self.type_document)
+        if chemin.suffix.lower() != attendu:
+            chemin = chemin.with_name(chemin.name + attendu)
+        return self._ecrire(chemin)
+
+    def _ecrire(self, chemin: Path) -> bool:
+        try:
+            format_natif.enregistrer(self.document, chemin)
+        except (OSError, NomInvalide) as erreur:
+            self.afficher_erreur(textes.TITRE_ERREUR_ENREGISTREMENT, str(erreur))
+            return False
+        self.statusBar().showMessage(textes.message_enregistre(chemin.name), DUREE_MESSAGE_MS)
+        self.enregistre.emit()
+        return True
+
+    # Fenêtres de dialogue, remplacées par des réponses toutes faites dans les tests.
+
+    def choisir_chemin_enregistrement(self) -> Path | None:
+        info = INFOS[self.type_document]
+        dossier = self.document.chemin.parent if self.document.chemin else dossier_documents()
+        propose = dossier / f"{self.document.nom}{info.extension}"
+        chemin, _filtre = QFileDialog.getSaveFileName(
+            self,
+            textes.TITRE_ENREGISTRER_SOUS,
+            str(propose),
+            f"{info.libelle} (*{info.extension})",
+        )
+        return Path(chemin) if chemin else None
+
+    def demander_avant_fermeture(self) -> str:
+        """Renvoie « enregistrer », « ignorer » ou « annuler »."""
+        boite = QMessageBox(self)
+        boite.setWindowTitle(textes.TITRE_FERMETURE)
+        boite.setIcon(QMessageBox.Icon.Warning)
+        boite.setText(textes.question_fermeture(self.document.nom))
+        enregistrer = boite.addButton(textes.BOUTON_ENREGISTRER, QMessageBox.ButtonRole.AcceptRole)
+        ignorer = boite.addButton(
+            textes.BOUTON_NE_PAS_ENREGISTRER, QMessageBox.ButtonRole.DestructiveRole
+        )
+        boite.addButton(textes.BOUTON_ANNULER, QMessageBox.ButtonRole.RejectRole)
+        boite.setDefaultButton(enregistrer)
+        boite.exec()
+        if boite.clickedButton() is enregistrer:
+            return "enregistrer"
+        if boite.clickedButton() is ignorer:
+            return "ignorer"
+        return "annuler"
+
+    def afficher_erreur(self, titre: str, message: str) -> None:
+        QMessageBox.warning(self, titre, message)
 
     def annoncer_bientot(self, nom_outil: str) -> None:
         """Message temporaire pour un outil pas encore programmé."""

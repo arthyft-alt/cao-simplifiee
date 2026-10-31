@@ -31,6 +31,10 @@ Comme dans SolidWorks, **pièce**, **assemblage** et **mise en plan** sont trois
 
 Toute modification d'un document passe par une `Commande` (méthodes `executer` et `annuler`) exécutée par `document.historique.executer(...)`. Elle devient ainsi annulable (Ctrl+Z) et rétablissable (Ctrl+Y), sans limite dans la séance. Plusieurs commandes formant une seule action utilisateur se regroupent avec `with historique.groupe("libellé"):`. Si une commande échoue, la pile reste inchangée. La fenêtre est prévenue par `historique.abonner(...)` et met à jour titre (étoile), arbre et boutons.
 
+## Fenêtres de dialogue et tests
+
+Les fenêtres de dialogue (choix d'un fichier, « Enregistrer avant de fermer ? », messages d'erreur, récupération) sont isolées dans des méthodes dédiées (`choisir_chemin_enregistrement`, `demander_avant_fermeture`, `afficher_erreur`, `choisir_fichier_a_ouvrir`, `demander_recuperation`). `tests/conftest.py` les remplace par des réponses automatiques : **aucun test ne doit ouvrir une fenêtre qui attend une réponse** (sinon les tests se bloquent).
+
 ## Paquets
 
 | Paquet | Rôle | Peut importer |
@@ -41,7 +45,7 @@ Toute modification d'un document passe par une `Commande` (méthodes `executer` 
 | `cao.assemblage` | Composants, contraintes d'assemblage, interférences | noyau, piece |
 | `cao.plan` | Vues, cotation, cartouche, nomenclature | noyau, piece, assemblage |
 | `cao.document` | Document commun (nom, type, historique annuler / rétablir) | fichiers |
-| `cao.fichiers` | Format natif, STEP, STL, DXF | noyau et paquets métier |
+| `cao.fichiers` | Format natif, récupération, STEP, STL, DXF | noyau, document et paquets métier |
 | `cao.ihm` | Tout ce qui est Qt, y compris le visualiseur `OCC.Display` | tous les paquets |
 
 ## Règles vérifiées automatiquement
@@ -68,6 +72,8 @@ src/cao/
 │   ├── historique.py  annuler / rétablir : Commande, CommandeGroupee, PileAnnulation (sans Qt)
 │   └── document.py    Document (type, nom, historique) ; CommandeRenommer
 ├── fichiers/
+│   ├── format_natif.py   enregistrer / ouvrir (ZIP + document.json) — voir docs/format_fichier.md
+│   ├── recuperation.py   sauvegarde automatique et récupération après plantage
 │   └── types_documents.py  les 3 types de documents (DOC-01), numérotation Pièce1, Assemblage1…
 └── ihm/
     ├── textes.py    TOUS les textes affichés (IHM-09) ; onglets du ruban PAR type de document

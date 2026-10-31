@@ -6,6 +6,10 @@ Toute modification passe par une `Commande` exécutée par `historique`,
 pour pouvoir être annulée.
 """
 
+import uuid
+from pathlib import Path
+from typing import Any
+
 from cao.document.historique import Commande, PileAnnulation
 from cao.fichiers.types_documents import TypeDocument
 
@@ -33,6 +37,21 @@ class Document:
         self.type_document = type_document
         self.nom = verifier_nom(nom)
         self.historique = PileAnnulation()
+        self.chemin: Path | None = None  # fichier où il est enregistré (None : jamais)
+        # Identifiant de séance, pour nommer son fichier de récupération (non enregistré).
+        self.identifiant = uuid.uuid4().hex
+        # Contenu propre au type (esquisses, fonctions, composants, vues…) : lots 2 à 5.
+        self.contenu: dict[str, Any] = {}
+
+    def vers_dict(self) -> dict[str, Any]:
+        """Données à écrire dans le fichier (voir docs/format_fichier.md)."""
+        return {"type": self.type_document.value, "nom": self.nom, "contenu": self.contenu}
+
+    @classmethod
+    def depuis_dict(cls, donnees: dict[str, Any]) -> "Document":
+        document = cls(TypeDocument(donnees["type"]), donnees["nom"])
+        document.contenu = dict(donnees.get("contenu", {}))
+        return document
 
     @property
     def modifie(self) -> bool:
