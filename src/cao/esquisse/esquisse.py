@@ -100,6 +100,34 @@ class RelationImpossible(ValueError):
     """Les entités choisies ne conviennent pas à cette relation (message pour l'utilisateur)."""
 
 
+class GenreCote(Enum):
+    """Cotes (COT-01) : le type est déduit de la sélection par la cotation intelligente (2.6)."""
+
+    LONGUEUR = "longueur"  # 1 ligne, ou 2 points (distance en ligne droite)
+    HORIZONTALE = "horizontale"  # 2 points ou 1 ligne : écart en x
+    VERTICALE = "verticale"  # 2 points ou 1 ligne : écart en y
+    DISTANCE = "distance"  # point + ligne, ou 2 lignes parallèles
+    ANGLE = "angle"  # 2 lignes, en degrés
+    RAYON = "rayon"  # 1 arc ou cercle
+    DIAMETRE = "diametre"  # 1 arc ou cercle
+
+
+@dataclass
+class Cote:
+    id: str
+    genre: GenreCote
+    entites: list[str]
+    valeur: float  # mm, ou degrés pour un angle
+    pilotee: bool = False  # True : cote « de référence », affichée entre parenthèses (COT-05)
+
+
+class CoteImpossible(ValueError):
+    """Les entités ou la valeur ne conviennent pas à cette cote (message pour l'utilisateur)."""
+
+
+ORIGINE = "P0"  # origine du plan d'esquisse : point fixe, toujours présent, jamais enregistré
+
+
 Entite = Point | Ligne | Cercle | Arc
 Courbe = Ligne | Cercle | Arc
 # Un point se désigne par son identifiant (point existant, partagé) ou par ses coordonnées.
@@ -120,11 +148,15 @@ class Esquisse:
         self.plan = plan  # « face », « dessus », « droite » ou référence d'une face (lot 3)
         self.entites: dict[str, Entite] = {}
         self.relations: dict[str, Relation] = {}
-        self._compteurs = dict.fromkeys([*_PREFIXES.values(), "R"], 0)
+        self.cotes: dict[str, Cote] = {}
+        self._compteurs = dict.fromkeys([*_PREFIXES.values(), "R", "D"], 0)
+        self._origine = Point(ORIGINE, 0.0, 0.0)
 
     # --- Accès ---
 
     def __getitem__(self, identifiant: str) -> Entite:
+        if identifiant == ORIGINE:
+            return self._origine
         try:
             return self.entites[identifiant]
         except KeyError:
@@ -358,10 +390,14 @@ class Esquisse:
         del self.relations[identifiant]
 
     def _retirer_relations_de(self, identifiant: str) -> list[str]:
+        """Retire les relations et les cotes qui concernent une entité."""
         retirees = self.relations_de(identifiant)
         for relation in retirees:
             del self.relations[relation]
-        return retirees
+        cotes = self.cotes_de(identifiant)
+        for cote in cotes:
+            del self.cotes[cote]
+        return retirees + cotes
 
     # --- Modification ---
 
@@ -371,8 +407,66 @@ class Esquisse:
         entite.construction = not entite.construction
 
     def deplacer_point(self, identifiant: str, x: float, y: float) -> None:
+        if identifiant == ORIGINE:
+            return  # l'origine ne bouge jamais
         p = self.point(identifiant)
         p.x, p.y = float(x), float(y)
+
+    # --- Cotes (COT-01, COT-05) ---
+
+    def ajouter_cote(
+        self,
+        genre: GenreCote,
+        *entites: str,
+        valeur: float | None = None,
+        pilotee: bool = False,
+    ) -> str:
+        """Ajoute une cote ; sans valeur, elle prend la mesure actuelle (comme à la pose
+        dans SolidWorks, avant que l'utilisateur ne tape la valeur voulue)."""
+        if len(set(entites)) != len(entites):
+            raise CoteImpossible("Choisissez des entités différentes.")
+        genres = tuple(sorted(self.genre_entite(e) for e in entites))
+        if genres not in _COMBINAISONS_COTES[genre]:
+            raise CoteImpossible(_message_refus_cote(genre))
+        rangees = sorted(entites, key=lambda e: 0 if self.genre_entite(e) == "point" else 1)
+        self._compteurs["D"] += 1
+        identifiant = f"D{self._compteurs['D']}"
+        cote = Cote(identifiant, genre, rangees, 0.0, pilotee)
+        from cao.esquisse.mesures import lignes_paralleles, mesurer_cote
+
+        if genres == ("ligne", "ligne"):
+            paralleles = lignes_paralleles(self, rangees[0], rangees[1])
+            if genre == GenreCote.DISTANCE and not paralleles:
+                self._compteurs["D"] -= 1
+                raise CoteImpossible(
+                    "Une distance entre deux lignes demande des lignes parallèles ; "
+                    "pour deux lignes sécantes, cotez l'angle."
+                )
+            if genre == GenreCote.ANGLE and paralleles:
+                self._compteurs["D"] -= 1
+                raise CoteImpossible(
+                    "Deux lignes parallèles n'ont pas d'angle : cotez la distance entre elles."
+                )
+
+        mesure = mesurer_cote(self, cote)
+        cote.valeur = mesure if valeur is None else verifier_valeur(genre, valeur)
+        self.cotes[identifiant] = cote
+        return identifiant
+
+    def modifier_cote(self, identifiant: str, valeur: float) -> None:
+        """Nouvelle valeur d'une cote (la géométrie suit à la prochaine résolution)."""
+        cote = self.cotes.get(identifiant)
+        if cote is None:
+            raise EntiteInconnue(identifiant)
+        cote.valeur = verifier_valeur(cote.genre, valeur)
+
+    def cotes_de(self, identifiant: str) -> list[str]:
+        return [c.id for c in self.cotes.values() if identifiant in c.entites]
+
+    def supprimer_cote(self, identifiant: str) -> None:
+        if identifiant not in self.cotes:
+            raise EntiteInconnue(identifiant)
+        del self.cotes[identifiant]
 
     def supprimer(self, identifiant: str) -> list[str]:
         """Supprime une entité ; renvoie tout ce qui a été supprimé.
@@ -420,6 +514,16 @@ class Esquisse:
                 {"id": r.id, "genre": r.genre.value, "entites": list(r.entites)}
                 for r in self.relations.values()
             ],
+            "cotes": [
+                {
+                    "id": c.id,
+                    "genre": c.genre.value,
+                    "entites": list(c.entites),
+                    "valeur": c.valeur,
+                    "pilotee": c.pilotee,
+                }
+                for c in self.cotes.values()
+            ],
         }
 
     @classmethod
@@ -436,6 +540,16 @@ class Esquisse:
             relation = Relation(brut["id"], GenreRelation(brut["genre"]), list(brut["entites"]))
             esquisse.relations[relation.id] = relation
             esquisse._compteurs["R"] = max(esquisse._compteurs["R"], int(relation.id[1:]))
+        for brut in donnees.get("cotes", []):
+            cote = Cote(
+                brut["id"],
+                GenreCote(brut["genre"]),
+                list(brut["entites"]),
+                float(brut["valeur"]),
+                bool(brut.get("pilotee", False)),
+            )
+            esquisse.cotes[cote.id] = cote
+            esquisse._compteurs["D"] = max(esquisse._compteurs["D"], int(cote.id[1:]))
         return esquisse
 
 
@@ -472,3 +586,44 @@ _ATTENDU: dict[GenreRelation, str] = {
 def _message_refus(genre: GenreRelation) -> str:
     nom = genre.value.replace("_", " ")
     return f"La relation « {nom} » demande {_ATTENDU[genre]}."
+
+
+_COMBINAISONS_COTES: dict[GenreCote, set[tuple[str, ...]]] = {
+    GenreCote.LONGUEUR: {("ligne",), ("point", "point")},
+    GenreCote.HORIZONTALE: {("ligne",), ("point", "point")},
+    GenreCote.VERTICALE: {("ligne",), ("point", "point")},
+    GenreCote.DISTANCE: {("ligne", "point"), ("ligne", "ligne")},
+    GenreCote.ANGLE: {("ligne", "ligne")},
+    GenreCote.RAYON: {("courbe",)},
+    GenreCote.DIAMETRE: {("courbe",)},
+}
+
+_ATTENDU_COTES: dict[GenreCote, str] = {
+    GenreCote.LONGUEUR: "une ligne ou deux points",
+    GenreCote.HORIZONTALE: "une ligne ou deux points",
+    GenreCote.VERTICALE: "une ligne ou deux points",
+    GenreCote.DISTANCE: "un point et une ligne, ou deux lignes parallèles",
+    GenreCote.ANGLE: "deux lignes",
+    GenreCote.RAYON: "un arc ou un cercle",
+    GenreCote.DIAMETRE: "un arc ou un cercle",
+}
+
+
+def _message_refus_cote(genre: GenreCote) -> str:
+    return f"Une cote « {genre.value} » demande {_ATTENDU_COTES[genre]}."
+
+
+def verifier_valeur(genre: GenreCote, valeur: float) -> float:
+    """Valeur acceptable pour une cote ; CoteImpossible avec un message clair sinon."""
+    valeur = float(valeur)
+    if not math.isfinite(valeur):
+        raise CoteImpossible("La valeur doit être un nombre.")
+    if genre == GenreCote.ANGLE:
+        if not 0 < valeur < 180:
+            raise CoteImpossible("Un angle doit être compris entre 0 et 180°.")
+    elif genre in (GenreCote.HORIZONTALE, GenreCote.VERTICALE, GenreCote.DISTANCE):
+        if valeur < 0:
+            raise CoteImpossible("Une distance ne peut pas être négative.")
+    elif valeur <= TOLERANCE:
+        raise CoteImpossible("La valeur doit être strictement positive.")
+    return valeur

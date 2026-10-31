@@ -26,8 +26,20 @@ from typing import Any
 
 from python_solvespace import ResultFlag, SolverSystem
 
-from cao.esquisse.esquisse import Arc, Cercle, Esquisse, GenreRelation, Ligne, Point, Relation
-from cao.esquisse.geometrie import Point2D, distance
+from cao.esquisse.esquisse import (
+    ORIGINE,
+    Arc,
+    Cercle,
+    Cote,
+    Esquisse,
+    GenreCote,
+    GenreRelation,
+    Ligne,
+    Point,
+    Relation,
+)
+from cao.esquisse.geometrie import TOLERANCE, Point2D, distance
+from cao.esquisse.mesures import angle_interieur, mesurer_cote
 
 
 class EtatEsquisse(Enum):
@@ -60,8 +72,9 @@ class _Traduction:
         self.s = SolverSystem()
         self.plan = self.s.create_2d_base()
         self.normale = self.s.add_normal_3d(1.0, 0.0, 0.0, 0.0)  # groupe fixe
+        origine = self.s.add_point_2d(0.0, 0.0, self.plan)  # groupe fixe : ne bouge jamais
         self.s.set_group(2)
-        self.points: dict[str, Any] = {}
+        self.points: dict[str, Any] = {ORIGINE: origine}
         self.courbes: dict[str, Any] = {}
         self.rayons: dict[str, Any] = {}  # cercle -> entité « distance » du rayon
         self.proprietaire: dict[int, str] = {}  # numéro de contrainte -> relation
@@ -123,14 +136,86 @@ class _Traduction:
 
     # --- Relations ---
 
-    def ajouter(self, relation: Relation) -> None:
+    def ajouter(self, element: Relation | Cote) -> None:
+        """Ajoute une relation ou une cote pilotante, en notant ses numéros de contrainte."""
         avant = self.s.cons_len()
-        self._traduire(relation)
+        if isinstance(element, Relation):
+            self._traduire(element)
+        else:
+            self._traduire_cote(element)
         apres = self.s.cons_len()
         if apres == avant:
-            raise ErreurInterneSolveur(f"relation {relation.id} refusée par le solveur")
+            raise ErreurInterneSolveur(f"{element.id} refusée par le solveur")
         for numero in range(avant + 1, apres + 1):
-            self.proprietaire[numero] = relation.id
+            self.proprietaire[numero] = element.id
+
+    # --- Cotes (COT-01) ---
+
+    def _deux_points(self, cote: Cote) -> tuple[str, str]:
+        if len(cote.entites) == 1:
+            ligne = self.esquisse[cote.entites[0]]
+            assert isinstance(ligne, Ligne)
+            return ligne.debut, ligne.fin
+        return cote.entites[0], cote.entites[1]
+
+    def _ecart_aligne(self, a: str, b: str, valeur: float, horizontal: bool) -> None:
+        """Écart horizontal (ou vertical) entre deux points, par un point d'aide
+        aligné horizontalement sur a et verticalement sur b (ou l'inverse)."""
+        pa, pb = self.esquisse.position(a), self.esquisse.position(b)
+        if valeur < TOLERANCE:
+            aide = self._ligne_aide(self.points[a], self.points[b])
+            (self.s.vertical if horizontal else self.s.horizontal)(aide, self.plan)
+            return
+        coin = Point2D(pb.x, pa.y) if horizontal else Point2D(pa.x, pb.y)
+        if distance(coin, pa) < TOLERANCE:  # départ dégénéré : on écarte un peu le point d'aide
+            coin = Point2D(pa.x + valeur, pa.y) if horizontal else Point2D(pa.x, pa.y + valeur)
+        aide = self._point_aide(coin)
+        cote_aide = self._ligne_aide(self.points[a], aide)
+        rappel = self._ligne_aide(aide, self.points[b])
+        if horizontal:
+            self.s.horizontal(cote_aide, self.plan)
+            self.s.vertical(rappel, self.plan)
+        else:
+            self.s.vertical(cote_aide, self.plan)
+            self.s.horizontal(rappel, self.plan)
+        self.s.distance(self.points[a], aide, valeur, self.plan)
+
+    def _a_gauche(self, point: str, ligne: str) -> bool:
+        """Le point est-il à gauche de la ligne, dans son sens de tracé ?"""
+        entite = self.esquisse[ligne]
+        assert isinstance(entite, Ligne)
+        a, b = self.esquisse.position(entite.debut), self.esquisse.position(entite.fin)
+        p = self.esquisse.position(point)
+        return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x) > 0
+
+    def _traduire_cote(self, cote: Cote) -> None:
+        s, plan, g, v = self.s, self.plan, cote.genre, cote.valeur
+        if g == GenreCote.LONGUEUR:
+            a, b = self._deux_points(cote)
+            s.distance(self.points[a], self.points[b], v, plan)
+        elif g in (GenreCote.HORIZONTALE, GenreCote.VERTICALE):
+            a, b = self._deux_points(cote)
+            self._ecart_aligne(a, b, v, horizontal=g == GenreCote.HORIZONTALE)
+        elif g == GenreCote.DISTANCE:
+            premiere, seconde = cote.entites
+            if self.esquisse.genre_entite(premiere) == "point":
+                point = premiere
+            else:
+                autre = self.esquisse[premiere]
+                assert isinstance(autre, Ligne)
+                point = autre.debut
+            # Distance signée pour le solveur : positive = à droite du sens de tracé
+            # (essai du 2026-10-31). On garde le point du côté où il a été dessiné.
+            signe = -1.0 if self._a_gauche(point, seconde) else 1.0
+            s.distance(self.points[point], self.courbes[seconde], signe * v, plan)
+        elif g == GenreCote.ANGLE:
+            l1, l2 = cote.entites
+            _actuel, meme_sens = angle_interieur(self.esquisse, l1, l2)
+            # Le solveur mesure l'angle entre les sens de tracé des lignes.
+            s.angle(self.courbes[l1], self.courbes[l2], v if meme_sens else 180.0 - v, plan)
+        else:
+            diametre = 2 * v if g == GenreCote.RAYON else v
+            s.diameter(self.courbes[cote.entites[0]], diametre)  # pas de plan pour cette cote
 
     def _traduire(self, relation: Relation) -> None:
         s, plan, g = self.s, self.plan, relation.genre
@@ -233,9 +318,15 @@ def resoudre(esquisse: Esquisse) -> Resultat:
     traduction = _Traduction(esquisse)
     for relation in esquisse.relations.values():
         traduction.ajouter(relation)
+    for cote in esquisse.cotes.values():
+        if not cote.pilotee:  # une cote de référence ne fait que mesurer
+            traduction.ajouter(cote)
     resultat = traduction.s.solve()
     if resultat == ResultFlag.OKAY:
         traduction.recopier()
+        for cote in esquisse.cotes.values():
+            if cote.pilotee:
+                cote.valeur = mesurer_cote(esquisse, cote)
         ddl = traduction.s.dof()
         etat = EtatEsquisse.TOTALEMENT_CONTRAINTE if ddl == 0 else EtatEsquisse.SOUS_CONTRAINTE
         return Resultat(etat, ddl)
@@ -245,7 +336,7 @@ def resoudre(esquisse: Esquisse) -> Resultat:
             for n in traduction.s.failures()
             if n in traduction.proprietaire
         },
-        key=lambda r: int(r[1:]),
+        key=lambda e: (e[0], int(e[1:])),  # relations R… puis cotes D…
     )
     # Le solveur répond « incohérent » ou « n'a pas convergé » selon les cas (deux lignes
     # parallèles ET perpendiculaires donnent le second) ; s'il désigne des relations, on les cite.

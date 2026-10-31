@@ -72,7 +72,9 @@ src/cao/
 │   ├── geometrie.py  calculs plans : cercle par 3 points, arc tangent, rectangles (sans dépendance)
 │   └── esquisse.py   modèle d'esquisse : points P1…, lignes L1…, cercles C1…, arcs A1… ;
 │                     les courbes désignent des points (partagés = contour relié) ;
-│                     relations R1… (REL-01 à 05) vérifiées à l'ajout
+│                     relations R1… (REL-01 à 05) et cotes D1… (COT-01, 05) vérifiées
+│                     à l'ajout ; origine P0 fixe, jamais enregistrée
+│   ├── mesures.py    valeur actuelle d'une cote, angle « intérieur » entre deux lignes
 │   └── solveur.py    pont vers python-solvespace : résout, recopie, degrés de liberté,
 │                     relations en conflit (voir ses particularités en tête du fichier)
 ├── document/
