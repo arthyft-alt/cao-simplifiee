@@ -1,6 +1,6 @@
 # Architecture du logiciel
 
-> Mis à jour à chaque lot. Dernière mise à jour : 2026-10-31 (étape 1.1).
+> Mis à jour à chaque lot. Dernière mise à jour : 2026-10-31 (étape 1.2).
 
 ## Principe
 
@@ -11,6 +11,10 @@ Trois couches, de haut en bas :
 3. **Noyau (`noyau`)** : enveloppe autour d'OpenCascade (pythonocc-core). C'est le seul endroit qui appelle `OCC.Core`, pour isoler cette bibliothèque énorme et peu documentée.
 
 Le solveur d'esquisse (python-solvespace) est appelé uniquement par `esquisse`.
+
+## Documents
+
+Comme dans SolidWorks, **pièce**, **assemblage** et **mise en plan** sont trois types de documents distincts (DOC-01). Chacun s'ouvre dans **sa propre fenêtre**, avec son propre ruban, son arbre et sa zone graphique (vue 3D pour pièce et assemblage, feuille 2D pour la mise en plan). Ils communiquent par références de fichiers (DOC-04, étape 1.6 puis lot 4) : un assemblage utilise des pièces, une mise en plan représente une pièce ou un assemblage. Le `GestionnaireDocuments` connaît toutes les fenêtres ouvertes et portera cette communication.
 
 ## Paquets
 
@@ -40,9 +44,23 @@ src/cao/
 ├── __main__.py      permet « python -m cao »
 ├── main.py          point d'entrée
 ├── noyau/  esquisse/  piece/  assemblage/  plan/  fichiers/
+├── fichiers/
+│   └── types_documents.py  les 3 types de documents (DOC-01), numérotation Pièce1, Assemblage1…
 └── ihm/
+    ├── textes.py    TOUS les textes affichés (IHM-09) ; onglets du ruban PAR type de document
+    ├── gestionnaire.py  une fenêtre par document ; ouvre « Nouveau document » ; fera communiquer les documents
+    ├── nouveau_document.py  fenêtre de choix Pièce / Assemblage / Mise en plan
+    ├── fenetre.py   fenêtre d'un document : ruban, arbre, vue 3D ou feuille, barre d'état selon le type
+    ├── feuille.py   zone graphique de la mise en plan (feuille de dessin 2D)
+    ├── theme.py     couleurs, police, feuille de style (taille de police selon l'écran)
+    ├── icones.py    icônes vectorielles SVG dessinées pour le projet
+    ├── ruban.py     ruban à onglets groupés, s'adapte à la largeur (grand / moyen / compact)
+    ├── arbre.py     arbre de construction / panneau de propriétés (même emplacement)
+    ├── vue3d.py     visualiseur OpenCascade, navigation à la molette
     └── panneaux/
 tests/               même découpage que src/cao
+├── conftest.py      tests d'interface sans écran (Qt « offscreen »)
+└── ihm/             la fenêtre est testée avec avec_vue3d=False (pas de carte graphique en test)
 └── pieces_reference/  pièces de recette R1 à R8
 prototypes/          scripts jetables de la phase 0 (hors logiciel)
 ```

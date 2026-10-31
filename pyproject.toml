@@ -36,7 +36,7 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.per-file-ignores]
 # Qt impose des noms de méthodes en camelCase (paintEvent, mouseMoveEvent…).
-"src/cao/ihm/**" = ["N802"]
+"src/cao/ihm/**" = ["N802", "N815"]
 "prototypes/**" = ["N802", "E402"]
 
 # --- mypy : vérification des types ---
@@ -49,6 +49,12 @@ strict = true
 [[tool.mypy.overrides]]
 module = ["python_solvespace.*"]
 ignore_missing_imports = true
+
+# Le PySide6 de conda-forge fournit ses fichiers de types (.pyi) sans le
+# marqueur py.typed : on demande à mypy de les lire quand même.
+[[tool.mypy.overrides]]
+module = ["PySide6.*"]
+follow_untyped_imports = true
 
 # --- pytest : tests automatiques ---
 [tool.pytest.ini_options]
