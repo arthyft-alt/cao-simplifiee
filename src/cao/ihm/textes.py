@@ -48,6 +48,23 @@ ACTION_FERMER: Final = "&Fermer"
 ACTION_QUITTER: Final = "&Quitter"
 RECHERCHE_COMMANDE: Final = "Rechercher…  Ctrl+K"
 
+# --- Annuler / rétablir (Ctrl+Z / Ctrl+Y) ---
+ANNULER: Final = "Annuler"
+RETABLIR: Final = "Rétablir"
+RIEN_A_ANNULER: Final = "Rien à annuler"
+RIEN_A_RETABLIR: Final = "Rien à rétablir"
+
+
+def info_annuler(libelle: str) -> str:
+    return f"{ANNULER} : {libelle}" if libelle else RIEN_A_ANNULER
+
+
+def info_retablir(libelle: str) -> str:
+    return f"{RETABLIR} : {libelle}" if libelle else RIEN_A_RETABLIR
+
+
+RENOMMER_ASTUCE: Final = "Double-cliquez sur le nom (ou F2) pour renommer le document."
+
 # --- Message des outils pas encore programmés ---
 BIENTOT: Final = "Pas encore disponible : arrive dans une prochaine étape."
 

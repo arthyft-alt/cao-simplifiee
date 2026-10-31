@@ -32,7 +32,8 @@ src = ["src", "tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "RUF"]
 # Textes en français : les signes ×, ’, « » sont voulus, pas des erreurs.
-ignore = ["RUF001", "RUF002", "RUF003"]
+# N818 : les noms d'erreurs sont en français (pas de suffixe « Error »).
+ignore = ["RUF001", "RUF002", "RUF003", "N818"]
 
 [tool.ruff.lint.per-file-ignores]
 # Qt impose des noms de méthodes en camelCase (paintEvent, mouseMoveEvent…).

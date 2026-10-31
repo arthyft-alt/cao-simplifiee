@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from cao.document.document import Document, NomInvalide
 from cao.fichiers.types_documents import INFOS, TypeDocument
 from cao.ihm import textes
 from cao.ihm.arbre import ICONE_DOCUMENT, PanneauGauche
@@ -90,7 +91,7 @@ class FenetreDocument(QMainWindow):
 
         self.type_document = type_document
         info = INFOS[type_document]
-        self.nom_document = nom_document or f"{info.nom_base}1"
+        self.document = Document(type_document, nom_document or f"{info.nom_base}1")
         self.setWindowTitle(textes.titre_fenetre(self.nom_document, info.libelle))
         self.setWindowIcon(icone(ICONE_DOCUMENT[type_document]))
         self.setMinimumSize(900, 600)  # tient sur un écran 1366 × 768 (TEC-14)
@@ -129,6 +130,9 @@ class FenetreDocument(QMainWindow):
         self._creer_barre_etat()
         self.ruban.outil_demande.connect(self.executer_commande)
         self.commandes: dict[str, Callable[[], None]] = {}
+        self.document.historique.abonner(self.rafraichir_document)
+        self.panneau_gauche.arbre.nom_document_saisi.connect(self.renommer_document)
+        self.rafraichir_document()
         self.selection: list[Forme] = []
         self.commandes["mesurer"] = self.ouvrir_mesure
         if isinstance(self.zone_graphique, Vue3D):
@@ -188,7 +192,16 @@ class FenetreDocument(QMainWindow):
         self.bouton_fichier.setText(textes.MENU_FICHIER.replace("&", ""))
         self.bouton_fichier.setMenu(self.menu_fichier)
         self.bouton_fichier.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.ruban.setCornerWidget(self.bouton_fichier, Qt.Corner.TopLeftCorner)
+        self._creer_annuler_retablir()
+        coin_gauche = QWidget(self.ruban)  # rattaché au ruban, sinon Python le détruit
+        coin_gauche.setObjectName("coin_fichier")
+        disposition_gauche = QHBoxLayout(coin_gauche)
+        disposition_gauche.setContentsMargins(0, 0, 6, 0)
+        disposition_gauche.setSpacing(0)
+        disposition_gauche.addWidget(self.bouton_fichier)
+        disposition_gauche.addWidget(self.bouton_annuler)
+        disposition_gauche.addWidget(self.bouton_retablir)
+        self.ruban.setCornerWidget(coin_gauche, Qt.Corner.TopLeftCorner)
 
         # Recherche de commande (IHM-06, priorité P2) : emplacement réservé.
         self.recherche = QLineEdit()
@@ -281,6 +294,68 @@ class FenetreDocument(QMainWindow):
             self.annoncer_bientot(nom_outil)
         else:
             action()
+
+    # --- Document : nom, annuler / rétablir (étape 1.5) ---
+
+    @property
+    def nom_document(self) -> str:
+        return self.document.nom
+
+    def _creer_annuler_retablir(self) -> None:
+        """Boutons Annuler / Rétablir à côté de Fichier, raccourcis Ctrl+Z et Ctrl+Y."""
+        self.action_annuler = QAction(icone("annuler"), textes.ANNULER, self)
+        self.action_annuler.setShortcut(QKeySequence.StandardKey.Undo)
+        self.action_annuler.triggered.connect(self.annuler)
+        self.action_retablir = QAction(icone("retablir"), textes.RETABLIR, self)
+        # Ctrl+Y (Windows) et Ctrl+Maj+Z (Linux). Attention : ne jamais déclarer deux fois
+        # la même touche sur une action, Qt la juge alors ambiguë et ne fait rien.
+        self.action_retablir.setShortcuts([QKeySequence("Ctrl+Y"), QKeySequence("Ctrl+Shift+Z")])
+        self.action_retablir.triggered.connect(self.retablir)
+        self.addActions([self.action_annuler, self.action_retablir])
+        self.bouton_annuler = QToolButton()
+        self.bouton_annuler.setDefaultAction(self.action_annuler)
+        self.bouton_retablir = QToolButton()
+        self.bouton_retablir.setDefaultAction(self.action_retablir)
+        for bouton in (self.bouton_annuler, self.bouton_retablir):
+            bouton.setObjectName("bouton_historique")
+            bouton.setAutoRaise(True)
+
+    def annuler(self) -> None:
+        self._sans_erreur(self.document.historique.annuler)
+
+    def retablir(self) -> None:
+        self._sans_erreur(self.document.historique.retablir)
+
+    def _sans_erreur(self, action: Callable[[], object]) -> None:
+        """Un échec ne doit jamais bloquer l'interface (§8.4) : on l'affiche et on continue."""
+        try:
+            action()
+        except Exception as erreur:
+            self.statusBar().showMessage(str(erreur), DUREE_MESSAGE_MS)
+
+    def renommer_document(self, nom: str) -> None:
+        try:
+            self.document.renommer(nom)
+        except NomInvalide as erreur:
+            self.statusBar().showMessage(str(erreur), DUREE_MESSAGE_MS)
+        self.rafraichir_document()  # remet l'ancien nom dans l'arbre en cas de refus
+
+    def rafraichir_document(self) -> None:
+        """Met l'interface à jour après une modification du document."""
+        historique = self.document.historique
+        self.setWindowTitle(
+            textes.titre_fenetre(self.document.nom, INFOS[self.type_document].libelle)
+        )
+        self.setWindowModified(self.document.modifie)
+        self.panneau_gauche.arbre.afficher_nom_document(self.document.nom)
+        self.action_annuler.setEnabled(historique.peut_annuler)
+        self.action_retablir.setEnabled(historique.peut_retablir)
+        self.action_annuler.setToolTip(
+            textes.info_annuler(historique.libelle_annuler) + "  (Ctrl+Z)"
+        )
+        self.action_retablir.setToolTip(
+            textes.info_retablir(historique.libelle_retablir) + "  (Ctrl+Y)"
+        )
 
     def annoncer_bientot(self, nom_outil: str) -> None:
         """Message temporaire pour un outil pas encore programmé."""

@@ -17,8 +17,8 @@ import cao
 from cao.main import texte_version
 
 RACINE_SOURCES = Path(cao.__file__).parent
-PAQUETS = ["noyau", "esquisse", "piece", "assemblage", "plan", "fichiers", "ihm"]
-PAQUETS_SANS_QT = ["noyau", "esquisse", "piece", "assemblage", "plan"]
+PAQUETS = ["noyau", "esquisse", "piece", "assemblage", "plan", "fichiers", "document", "ihm"]
+PAQUETS_SANS_QT = ["noyau", "esquisse", "piece", "assemblage", "plan", "document"]
 
 
 def modules_importes(paquet: str) -> set[str]:

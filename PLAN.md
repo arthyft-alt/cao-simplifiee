@@ -4,8 +4,8 @@
 
 - **Date :** 2026-10-31
 - **Phase en cours :** Lot 1 — Socle
-- **Dernière étape validée :** 1.4 — sélection avec surbrillance et filtre, mesure rapide, « Normale à » ; validée par Simon
-- **Prochaine étape :** 1.5 (annuler / rétablir : pile de commandes ; test automatique sur 10 actions)
+- **Dernière étape validée :** 1.5 — annuler / rétablir (Ctrl+Z, Ctrl+Y), renommage annulable ; validée par Simon après correction de Ctrl+Y
+- **Prochaine étape :** 1.6 (format natif : enregistrer, rouvrir, sauvegarde automatique, récupération — DOC-01, 03, 07)
 
 ## Contexte
 
@@ -41,6 +41,8 @@
 | 2026-10-31 | Sélection : clic = sélectionner, Ctrl + clic = ajouter (comme SolidWorks) ; surbrillance remplie bleu clair au survol, bleu franc à la sélection | IHM-04 |
 | 2026-10-31 | Mesure rapide affichée en permanence dans la barre d'état ; Évaluer > Mesurer ouvre un panneau détaillé à gauche ; nombres à la française (virgule) | IHM-12 |
 | 2026-10-31 | Éclairage : phare d'origine incliné + ambiante 0,55 (pièce gris bleuté 0,60/0,65/0,73) | Vue de face sans saturation, faces de teintes différentes en isométrique |
+| 2026-10-31 | Toute modification d'un document passe par une commande annulable (`cao/document/historique.py`), sans limite ; nouveau paquet `cao.document` sans Qt | Exigence « réversible » §2.1 ; base de l'enregistrement (1.6) |
+| 2026-10-31 | Boutons Annuler / Rétablir à côté de Fichier ; Ctrl+Z, Ctrl+Y (et Ctrl+Maj+Z) | Comme SolidWorks et la plupart des logiciels |
 | 2026-10-31 | Extensions de fichiers .caop / .caoa / .caom — PROVISOIRE | À confirmer à l'étape 1.6 (format natif) |
 | 2026-10-31 | Outils pas encore programmés : cliquables, affichent « Pas encore disponible » dans la barre d'état (au lieu d'être grisés) | Interface plus vivante ; à remplacer outil par outil |
 
@@ -49,7 +51,7 @@
 | Lot | Contenu | Exigences | État |
 | --- | --- | --- | --- |
 | 0. Prototypes | Cube affiché, extrusion + STEP, solveur, vue HLR | — | Terminé (2026-10-31) |
-| 1. Socle | Fenêtre, navigation 3D, arbre, fichiers | IHM, ARB, DOC (P1) | En cours (1.1 à 1.4 faites) |
+| 1. Socle | Fenêtre, navigation 3D, arbre, fichiers | IHM, ARB, DOC (P1) | En cours (1.1 à 1.5 faites) |
 | 2. Esquisse | Entités, relations, solveur, cotation | ESQ, GEO, OUT, REL, COT (P1) | À faire |
 | 3. Fonctions | Extrusions, révolutions, congés, répétitions | VOL, HAB, REP, REF, PRO (P1) | À faire |
 | 4. Assemblage | Insertion, contraintes, déplacement | ASM, CTR, ANA (P1) | À faire |

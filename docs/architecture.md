@@ -27,6 +27,10 @@ Comme dans SolidWorks, **pièce**, **assemblage** et **mise en plan** sont trois
 - Éclairage : on règle les deux lumières d'origine (phare + ambiante) ; ne jamais vider `Viewer.ActiveLights()` (pythonocc renvoie la vraie liste).
 - Pour afficher une forme, utiliser `noyau.affichage.afficher_forme` (et non `DisplayShape` de pythonocc, qui impose sa propre matière).
 
+## Modifications du document : toujours par une commande
+
+Toute modification d'un document passe par une `Commande` (méthodes `executer` et `annuler`) exécutée par `document.historique.executer(...)`. Elle devient ainsi annulable (Ctrl+Z) et rétablissable (Ctrl+Y), sans limite dans la séance. Plusieurs commandes formant une seule action utilisateur se regroupent avec `with historique.groupe("libellé"):`. Si une commande échoue, la pile reste inchangée. La fenêtre est prévenue par `historique.abonner(...)` et met à jour titre (étoile), arbre et boutons.
+
 ## Paquets
 
 | Paquet | Rôle | Peut importer |
@@ -36,6 +40,7 @@ Comme dans SolidWorks, **pièce**, **assemblage** et **mise en plan** sont trois
 | `cao.piece` | Fonctions volumiques, arbre de construction, reconstruction | noyau, esquisse |
 | `cao.assemblage` | Composants, contraintes d'assemblage, interférences | noyau, piece |
 | `cao.plan` | Vues, cotation, cartouche, nomenclature | noyau, piece, assemblage |
+| `cao.document` | Document commun (nom, type, historique annuler / rétablir) | fichiers |
 | `cao.fichiers` | Format natif, STEP, STL, DXF | noyau et paquets métier |
 | `cao.ihm` | Tout ce qui est Qt, y compris le visualiseur `OCC.Display` | tous les paquets |
 
@@ -59,6 +64,9 @@ src/cao/
 │   └── affichage.py  vue 3D : orientations (Y vers le haut), cube de vue, zoom au point,
 │                     modes de rendu, apparence et éclairage, sélection et filtre (sans Qt)
 │   └── mesure.py     mesure rapide (IHM-12) : longueur, aire, rayon, distance, angle
+├── document/
+│   ├── historique.py  annuler / rétablir : Commande, CommandeGroupee, PileAnnulation (sans Qt)
+│   └── document.py    Document (type, nom, historique) ; CommandeRenommer
 ├── fichiers/
 │   └── types_documents.py  les 3 types de documents (DOC-01), numérotation Pièce1, Assemblage1…
 └── ihm/

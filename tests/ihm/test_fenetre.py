@@ -99,7 +99,8 @@ def test_barre_etat_piece(fenetre: FenetreDocument) -> None:
 
 def test_menu_fichier_sur_la_ligne_des_onglets(fenetre: FenetreDocument) -> None:
     # Pas de barre de menus séparée : le bouton Fichier est dans le coin du ruban.
-    assert fenetre.ruban.cornerWidget(Qt.Corner.TopLeftCorner) is fenetre.bouton_fichier
+    coin = fenetre.ruban.cornerWidget(Qt.Corner.TopLeftCorner)
+    assert coin is not None and coin.isAncestorOf(fenetre.bouton_fichier)
     assert fenetre.bouton_fichier.menu() is fenetre.menu_fichier
     assert fenetre.action_nouveau.isEnabled()
     assert fenetre.action_fermer.isEnabled()

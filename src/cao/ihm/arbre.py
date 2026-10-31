@@ -5,7 +5,7 @@ une fonction, le panneau de propriétés remplace l'arbre, puis l'arbre revient.
 Le contenu de départ de l'arbre dépend du type de document.
 """
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtWidgets import (
     QLabel,
     QStackedWidget,
@@ -28,7 +28,12 @@ ICONE_DOCUMENT: dict[TypeDocument, str] = {
 
 
 class ArbreConstruction(QTreeWidget):
-    """Pièce : plans + origine. Assemblage : idem + dossier Contraintes. Plan : feuilles."""
+    """Pièce : plans + origine. Assemblage : idem + dossier Contraintes. Plan : feuilles.
+
+    Le nom du document (racine) se modifie par double-clic ou F2.
+    """
+
+    nom_document_saisi = Signal(str)  # nouveau nom tapé par l'utilisateur
 
     def __init__(
         self, nom_document: str, type_document: TypeDocument, parent: QWidget | None = None
@@ -40,6 +45,12 @@ class ArbreConstruction(QTreeWidget):
         self.setIndentation(16)
         self.racine = QTreeWidgetItem(self, [nom_document])
         self.racine.setIcon(0, icone(ICONE_DOCUMENT[type_document]))
+        self.racine.setFlags(self.racine.flags() | Qt.ItemFlag.ItemIsEditable)
+        self.racine.setToolTip(0, textes.RENOMMER_ASTUCE)
+        self.setEditTriggers(
+            QTreeWidget.EditTrigger.DoubleClicked | QTreeWidget.EditTrigger.EditKeyPressed
+        )
+        self.itemChanged.connect(self._element_modifie)
 
         if type_document == TypeDocument.MISE_EN_PLAN:
             QTreeWidgetItem(self.racine, [textes.ARBRE_FEUILLE]).setIcon(0, icone("feuille"))
@@ -51,6 +62,17 @@ class ArbreConstruction(QTreeWidget):
                 dossier = QTreeWidgetItem(self.racine, [textes.ARBRE_CONTRAINTES])
                 dossier.setIcon(0, icone("dossier"))
         self.expandAll()
+
+    def _element_modifie(self, element: QTreeWidgetItem, _colonne: int) -> None:
+        if element is self.racine:
+            self.nom_document_saisi.emit(element.text(0))
+
+    def afficher_nom_document(self, nom: str) -> None:
+        """Met à jour le nom affiché, sans redéclencher `nom_document_saisi`."""
+        if self.racine.text(0) != nom:
+            self.blockSignals(True)
+            self.racine.setText(0, nom)
+            self.blockSignals(False)
 
     def noms_elements(self) -> list[str]:
         enfants = (self.racine.child(i) for i in range(self.racine.childCount()))

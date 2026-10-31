@@ -120,6 +120,9 @@ QLabel#consigne_panneau {{ color: {c["texte_doux"]}; }}
 QLabel#resultats_mesure {{ font-size: {taille_police + 1}pt; line-height: 150%; }}
 QToolButton#bouton_filtre {{ padding: 3px 4px; }}
 
+QWidget#coin_fichier {{ background: {c["surface"]}; }}
+QToolButton#bouton_historique {{ padding: 3px; margin: 3px 0; }}
+
 QToolTip {{ background: {c["texte"]}; color: #ffffff; border: none; padding: 6px 8px;
         border-radius: 6px; }}
 """

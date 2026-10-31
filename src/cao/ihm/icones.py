@@ -106,6 +106,8 @@ DESSINS: dict[str, str] = {
     '<path d="M4 20 20 4" stroke-width="2.6"/>',
     "sel_sommet": '<rect x="4" y="4" width="16" height="16" rx="2" stroke-dasharray="2 2.5"/>'
     '<circle cx="20" cy="4" r="2.6" fill="{trait}"/>',
+    "annuler": '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    "retablir": '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/>',
     "note": '<path d="M4 4h16v12H10l-4 4v-4H4z" fill="{fond}"/><path d="M8 8h8M8 12h5"/>',
     "interference": '<rect x="3" y="3" width="11" height="11" rx="1.5"/>'
     '<rect x="10" y="10" width="11" height="11" rx="1.5"/>'
