@@ -16,6 +16,14 @@ Le solveur d'esquisse (python-solvespace) est appelé uniquement par `esquisse`.
 
 Comme dans SolidWorks, **pièce**, **assemblage** et **mise en plan** sont trois types de documents distincts (DOC-01). Chacun s'ouvre dans **sa propre fenêtre**, avec son propre ruban, son arbre et sa zone graphique (vue 3D pour pièce et assemblage, feuille 2D pour la mise en plan). Ils communiquent par références de fichiers (DOC-04, étape 1.6 puis lot 4) : un assemblage utilise des pièces, une mise en plan représente une pièce ou un assemblage. Le `GestionnaireDocuments` connaît toutes les fenêtres ouvertes et portera cette communication.
 
+## Vue 3D
+
+- Convention d'axes de SolidWorks : **Y vers le haut**. Plan de face = XY, dessus = XZ, droite = YZ.
+- `ihm/vue3d.py` reçoit les événements Qt et les convertit en **pixels réels** (`devicePixelRatioF`) avant de les passer à OpenCascade : indispensable sur un écran agrandi par Windows.
+- `noyau/affichage.py` fait tous les calculs de vue ; il reçoit la `V3d_View` et l'`AIS_InteractiveContext`.
+- Les commandes du ruban et de la barre d'affichage ont un identifiant (`Outil.commande`) ; la fenêtre les relie aux méthodes de la vue (`FenetreDocument.brancher_commandes_vue`). Une commande sans identifiant affiche « Pas encore disponible ».
+- Pour afficher une forme, utiliser `noyau.affichage.afficher_forme` (et non `DisplayShape` de pythonocc, qui impose sa propre matière).
+
 ## Paquets
 
 | Paquet | Rôle | Peut importer |
@@ -44,6 +52,9 @@ src/cao/
 ├── __main__.py      permet « python -m cao »
 ├── main.py          point d'entrée
 ├── noyau/  esquisse/  piece/  assemblage/  plan/  fichiers/
+├── noyau/
+│   └── affichage.py  vue 3D : orientations (Y vers le haut), cube de vue, zoom au point,
+│                     modes de rendu, apparence et éclairage (sans Qt)
 ├── fichiers/
 │   └── types_documents.py  les 3 types de documents (DOC-01), numérotation Pièce1, Assemblage1…
 └── ihm/

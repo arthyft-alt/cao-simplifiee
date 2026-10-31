@@ -18,6 +18,10 @@ Disposition :
     └──────────────────────────────────────────────┘
 """
 
+from collections.abc import Callable
+from functools import partial
+from typing import Protocol
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QCloseEvent, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
@@ -40,9 +44,19 @@ from cao.ihm.feuille import FeuilleDessin
 from cao.ihm.icones import icone
 from cao.ihm.ruban import BarreAffichage, Ruban
 from cao.ihm.theme import appliquer_theme
+from cao.ihm.vue3d import Vue3D
+from cao.noyau.affichage import ModeRendu, VueStandard
 
 DUREE_MESSAGE_MS = 4000
 HAUTEUR_PETIT_ECRAN = 800  # pixels utiles : en dessous, ruban sans grandes icônes
+
+
+class CommandesVue(Protocol):
+    """Ce que la fenêtre attend d'une vue 3D (permet de tester sans carte graphique)."""
+
+    def orienter(self, vue_standard: VueStandard) -> None: ...
+    def ajuster(self) -> None: ...
+    def changer_mode_rendu(self, mode: ModeRendu) -> None: ...
 
 
 def hauteur_ecran_disponible() -> int:
@@ -91,7 +105,7 @@ class FenetreDocument(QMainWindow):
         self.barre_affichage: BarreAffichage | None = None
         if info.vue_3d:  # pas de vues 3D standard sur une feuille de dessin
             self.barre_affichage = BarreAffichage()
-            self.barre_affichage.outil_demande.connect(self.annoncer_bientot)
+            self.barre_affichage.outil_demande.connect(self.executer_commande)
             disposition_droite.addWidget(self.barre_affichage)
         disposition_droite.addWidget(self.zone_graphique, stretch=1)
 
@@ -110,7 +124,10 @@ class FenetreDocument(QMainWindow):
         self.setCentralWidget(centre)
 
         self._creer_barre_etat()
-        self.ruban.outil_demande.connect(self.annoncer_bientot)
+        self.ruban.outil_demande.connect(self.executer_commande)
+        self.commandes: dict[str, Callable[[], None]] = {}
+        if isinstance(self.zone_graphique, Vue3D):
+            self.brancher_commandes_vue(self.zone_graphique)
         self._dimensionner_selon_ecran()
 
     def _dimensionner_selon_ecran(self) -> None:
@@ -188,10 +205,7 @@ class FenetreDocument(QMainWindow):
         if self.type_document == TypeDocument.MISE_EN_PLAN:
             return FeuilleDessin()
         if vue_3d:
-            from cao.ihm.vue3d import Vue3D  # import ici : nécessite une carte graphique
-
-            vue: QWidget = Vue3D(self)
-            return vue
+            return Vue3D(self)
         zone = QWidget()
         zone.setObjectName("zone_graphique_vide")
         return zone
@@ -220,6 +234,22 @@ class FenetreDocument(QMainWindow):
     def _remettre_astuce(self, message: str) -> None:
         if not message:
             self.statusBar().showMessage(self.astuce)
+
+    def brancher_commandes_vue(self, vue: CommandesVue) -> None:
+        """Relie les commandes de vue et de rendu (IHM-02, IHM-03) à la vue 3D."""
+        for nom_vue in VueStandard:
+            self.commandes[f"vue_{nom_vue.value}"] = partial(vue.orienter, nom_vue)
+        for mode in ModeRendu:
+            self.commandes[f"rendu_{mode.value}"] = partial(vue.changer_mode_rendu, mode)
+        self.commandes["ajuster"] = vue.ajuster
+
+    def executer_commande(self, commande: str, nom_outil: str) -> None:
+        """Exécute la commande d'un outil, ou annonce qu'elle n'est pas encore programmée."""
+        action = self.commandes.get(commande)
+        if action is None:
+            self.annoncer_bientot(nom_outil)
+        else:
+            action()
 
     def annoncer_bientot(self, nom_outil: str) -> None:
         """Message temporaire pour un outil pas encore programmé."""

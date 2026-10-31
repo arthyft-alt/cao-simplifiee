@@ -1,9 +1,16 @@
-"""Zone graphique 3D : visualiseur OpenCascade intégré à Qt.
+"""Zone graphique 3D : visualiseur OpenCascade intégré à Qt (IHM-01 à IHM-03).
 
-Navigation à la souris façon SolidWorks (exigence IHM-01, finalisée à l'étape 1.3) :
+Souris, comme SolidWorks :
     clic molette + glisser        -> rotation
     Ctrl + clic molette + glisser -> panoramique
-    molette                       -> zoom
+    molette                       -> zoom centré sur le curseur
+    clic gauche sur le cube       -> vue correspondante (face, arête ou coin)
+Clavier :
+    flèches -> rotation de 15° (utile sur un pavé tactile sans molette)
+    F       -> ajuster la vue au modèle
+
+Les calculs de vue sont faits par cao.noyau.affichage ; ce module ne gère
+que les événements Qt.
 """
 
 from typing import Any
@@ -13,18 +20,22 @@ from OCC.Display.backend import load_backend
 load_backend("pyside6")  # doit précéder l'import de qtDisplay
 
 from OCC.Display import qtDisplay  # noqa: E402
-from PySide6.QtCore import Qt  # noqa: E402
-from PySide6.QtGui import QMouseEvent, QPaintEvent, QWheelEvent  # noqa: E402
+from PySide6.QtCore import QPointF, Qt  # noqa: E402
+from PySide6.QtGui import QKeyEvent, QMouseEvent, QPaintEvent, QWheelEvent  # noqa: E402
+
+from cao.noyau import affichage as noyau_affichage  # noqa: E402
+from cao.noyau.affichage import ModeRendu, VueStandard  # noqa: E402
 
 COULEUR_FOND_HAUT = (235, 240, 248)
 COULEUR_FOND_BAS = (170, 185, 210)
-FACTEUR_ZOOM = 1.25
+FACTEUR_ZOOM = 1.2
+SEUIL_CLIC_PX = 4  # en dessous de ce déplacement, un appui-relâché est un clic
 
 
 class Vue3D(qtDisplay.qtViewer3d):
-    """Visualiseur 3D avec la navigation à la molette."""
+    """Visualiseur 3D avec la navigation façon SolidWorks."""
 
-    # Position de la souris au début du glissement (attributs créés par pythonocc).
+    # Attributs créés par pythonocc (déclarés ici pour la vérification des types).
     dragStartPosX: int
     dragStartPosY: int
     _inited: bool
@@ -38,8 +49,37 @@ class Vue3D(qtDisplay.qtViewer3d):
         super().InitDriver()
         affichage: Any = self._display
         affichage.set_bg_gradient_color(list(COULEUR_FOND_HAUT), list(COULEUR_FOND_BAS))
-        affichage.display_triedron()
-        affichage.View_Iso()
+        noyau_affichage.configurer_apparence(affichage.Context)
+        noyau_affichage.configurer_eclairage(affichage.Viewer)
+        self.cube = noyau_affichage.creer_cube_de_vue()
+        affichage.Context.Display(self.cube, False)
+        self.mode_rendu = ModeRendu.OMBRE_ARETES
+        noyau_affichage.appliquer_mode_rendu(affichage.Context, affichage.View, self.mode_rendu)
+        noyau_affichage.orienter(affichage.View, VueStandard.ISOMETRIQUE)
+        # Touches de pythonocc remplacées par celles du logiciel.
+        self._key_map = {ord("F"): self.ajuster}
+
+    # --- Commandes appelées par la barre d'affichage et le ruban ---
+
+    @property
+    def prete(self) -> bool:
+        return bool(self._inited) and not self._libere
+
+    def orienter(self, vue_standard: VueStandard) -> None:
+        if self.prete:
+            noyau_affichage.orienter(self._display.View, vue_standard)
+
+    def ajuster(self) -> None:
+        if self.prete:
+            self._display.View.FitAll(0.1, True)
+            self._display.View.Redraw()
+
+    def changer_mode_rendu(self, mode: ModeRendu) -> None:
+        if self.prete:
+            self.mode_rendu = mode
+            noyau_affichage.appliquer_mode_rendu(self._display.Context, self._display.View, mode)
+
+    # --- Fermeture ---
 
     def liberer(self) -> None:
         """Libère la vue OpenGL tant que la fenêtre existe encore.
@@ -57,27 +97,77 @@ class Vue3D(qtDisplay.qtViewer3d):
             affichage.View.Remove()
             self._inited = False
 
+    # --- Événements Qt ---
+
     def paintEvent(self, event: QPaintEvent) -> None:
         if self._libere:
             return  # vue libérée : plus rien à dessiner
         super().paintEvent(event)
 
+    # La souris est gérée entièrement ici. Qt donne des positions en pixels
+    # « logiques » ; OpenCascade attend des pixels réels de l'écran. Sur un écran
+    # agrandi par Windows (125 %, 150 %…), il faut multiplier par ce facteur,
+    # sinon les clics tombent à côté de ce qui est visé.
+
+    def _pixels(self, point: QPointF) -> tuple[int, int]:
+        """Position Qt -> pixels réels d'OpenCascade."""
+        facteur = self.devicePixelRatioF()
+        return round(point.x() * facteur), round(point.y() * facteur)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        self.setFocus()
+        self.dragStartPosX, self.dragStartPosY = self._pixels(event.position())
+        if self.prete and event.button() == Qt.MouseButton.MiddleButton:
+            self._display.StartRotation(self.dragStartPosX, self.dragStartPosY)
+
     def mouseMoveEvent(self, evt: QMouseEvent) -> None:
-        if evt.buttons() == Qt.MouseButton.MiddleButton:
-            point = evt.position().toPoint()
-            ctrl = bool(evt.modifiers() & Qt.KeyboardModifier.ControlModifier)
-            if ctrl:
-                dx = point.x() - self.dragStartPosX
-                dy = point.y() - self.dragStartPosY
-                self.dragStartPosX = point.x()
-                self.dragStartPosY = point.y()
-                self._display.Pan(dx, -dy)
-            else:
-                # La rotation a été démarrée au clic (mousePressEvent de pythonocc).
-                self._display.Rotation(point.x(), point.y())
+        if not self.prete:
             return
-        super().mouseMoveEvent(evt)
+        x, y = self._pixels(evt.position())
+        if evt.buttons() == Qt.MouseButton.MiddleButton:
+            if evt.modifiers() & Qt.KeyboardModifier.ControlModifier:
+                self._display.Pan(x - self.dragStartPosX, self.dragStartPosY - y)
+                self.dragStartPosX, self.dragStartPosY = x, y
+            else:
+                # La rotation a été démarrée à l'appui (StartRotation).
+                self._display.Rotation(x, y)
+        elif evt.buttons() == Qt.MouseButton.NoButton:
+            self._display.MoveTo(x, y)  # surbrillance de ce qui est sous la souris (IHM-04)
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if not self.prete or event.button() != Qt.MouseButton.LeftButton:
+            return
+        x, y = self._pixels(event.position())
+        deplacement = abs(x - self.dragStartPosX) + abs(y - self.dragStartPosY)
+        if deplacement > SEUIL_CLIC_PX * self.devicePixelRatioF():
+            return  # glisser au bouton gauche : réservé à la sélection par rectangle (plus tard)
+        contexte = self._display.Context
+        if noyau_affichage.clic_sur_cube(contexte, self._display.View, x, y):
+            return
+        if event.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            self._display.ShiftSelect(x, y)
+        else:
+            self._display.Select(x, y)
+        self.sig_topods_selected.emit(self._display.selected_shapes)
 
     def wheelEvent(self, event: QWheelEvent) -> None:
+        if not self.prete:
+            return
+        x, y = self._pixels(event.position())
         facteur = FACTEUR_ZOOM if event.angleDelta().y() > 0 else 1 / FACTEUR_ZOOM
-        self._display.ZoomFactor(facteur)
+        noyau_affichage.zoomer_au_point(self._display.View, x, y, facteur)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        pas = noyau_affichage.PAS_ROTATION_CLAVIER
+        rotations = {
+            Qt.Key.Key_Left: (-pas, 0.0),
+            Qt.Key.Key_Right: (pas, 0.0),
+            Qt.Key.Key_Up: (0.0, -pas),
+            Qt.Key.Key_Down: (0.0, pas),
+        }
+        cle = Qt.Key(event.key())
+        if cle in rotations and self.prete:
+            horizontal, vertical = rotations[cle]
+            noyau_affichage.tourner(self._display.View, horizontal, vertical)
+            return
+        super().keyPressEvent(event)

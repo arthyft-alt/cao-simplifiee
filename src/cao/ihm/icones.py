@@ -80,6 +80,7 @@ DESSINS: dict[str, str] = {
     "masse": '<path d="M6 9h12l2 11H4z" fill="{fond}"/><circle cx="12" cy="6" r="2.5"/>',
     # --- Affichage ---
     "ombre": _CUBE,
+    "ombre_simple": '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z" fill="{fond}"/>',
     "filaire": _CUBE.replace('fill="{fond}"', "")
     + '<path d="M4 16.5 12 12l8 4.5" stroke-dasharray="1.5 2"/>',
     "cachees": '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>'

@@ -11,8 +11,8 @@ Il choisit la plus grande présentation qui tient sans déborder.
 
 from dataclasses import dataclass
 
-from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QAction, QResizeEvent
+from PySide6.QtCore import QSize, Qt, Signal, SignalInstance
+from PySide6.QtGui import QAction, QKeySequence, QResizeEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -50,7 +50,18 @@ def choisir_mode(largeurs: list[tuple[str, int]], disponible: int) -> str:
 
 
 def _info_bulle(outil: textes.Outil) -> str:
-    return f"<b>{outil.nom}</b><br>{outil.info}"
+    raccourci = f"  <span style='color:#aab4c3'>{outil.raccourci}</span>" if outil.raccourci else ""
+    return f"<b>{outil.nom}</b>{raccourci}<br>{outil.info}"
+
+
+def creer_action(outil: textes.Outil, parent: QWidget, signal: SignalInstance) -> QAction:
+    """Action Qt d'un outil : icône, info-bulle, raccourci ; émet (commande, nom) au clic."""
+    action = QAction(icone(outil.icone), outil.nom, parent)
+    action.setToolTip(_info_bulle(outil))
+    if outil.raccourci:
+        action.setShortcut(QKeySequence(outil.raccourci))
+    action.triggered.connect(lambda _=False, o=outil: signal.emit(o.commande, o.nom))
+    return action
 
 
 class GroupeRuban(QWidget):
@@ -64,9 +75,7 @@ class GroupeRuban(QWidget):
         ligne.setContentsMargins(0, 0, 0, 0)
         ligne.setSpacing(1)
         for outil in groupe.outils:
-            action = QAction(icone(outil.icone), outil.nom, self)
-            action.setToolTip(_info_bulle(outil))
-            action.triggered.connect(lambda _=False, n=outil.nom: ruban.outil_demande.emit(n))
+            action = creer_action(outil, self, ruban.outil_demande)
             bouton = QToolButton()
             bouton.setDefaultAction(action)
             bouton.setAutoRaise(True)
@@ -122,7 +131,7 @@ class PageRuban(QWidget):
 class Ruban(QTabWidget):
     """Onglets propres au type de document ; s'adapte à la largeur de la fenêtre."""
 
-    outil_demande = Signal(str)  # émis avec le nom de l'outil cliqué
+    outil_demande = Signal(str, str)  # (commande, nom de l'outil) au clic
 
     def __init__(self, onglets: list[textes.Onglet], parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -181,7 +190,7 @@ class Ruban(QTabWidget):
 class BarreAffichage(QToolBar):
     """Vues standard, en icônes seules, au-dessus de la zone 3D."""
 
-    outil_demande = Signal(str)
+    outil_demande = Signal(str, str)  # (commande, nom de l'outil) au clic
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -193,10 +202,7 @@ class BarreAffichage(QToolBar):
         espace_gauche.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.addWidget(espace_gauche)
         for outil in textes.BARRE_AFFICHAGE:
-            action = QAction(icone(outil.icone), outil.nom, self)
-            action.setToolTip(_info_bulle(outil))
-            action.triggered.connect(lambda _=False, n=outil.nom: self.outil_demande.emit(n))
-            self.addAction(action)
+            self.addAction(creer_action(outil, self, self.outil_demande))
         espace_droite = QWidget()
         espace_droite.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.addWidget(espace_droite)

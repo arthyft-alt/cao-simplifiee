@@ -17,6 +17,8 @@ class Outil(NamedTuple):
     nom: str  # texte du bouton
     info: str  # phrase d'explication de l'info-bulle (AID-01)
     icone: str  # nom de l'icône dans icones.DESSINS
+    commande: str = ""  # identifiant de la commande programmée ("" : pas encore disponible)
+    raccourci: str = ""  # raccourci clavier, ex. "Ctrl+1"
 
 
 class Groupe(NamedTuple):
@@ -199,9 +201,20 @@ _AFFICHAGE = Onglet(
         Groupe(
             "Rendu",
             [
-                Outil("Ombré", "Ombré avec arêtes.", "ombre"),
-                Outil("Filaire", "Toutes les arêtes, sans faces.", "filaire"),
-                Outil("Lignes cachées", "Arêtes cachées supprimées.", "cachees"),
+                Outil(
+                    "Ombré avec arêtes",
+                    "Faces ombrées et arêtes en noir.",
+                    "ombre",
+                    "rendu_ombre_aretes",
+                ),
+                Outil("Ombré", "Faces ombrées, sans les arêtes.", "ombre_simple", "rendu_ombre"),
+                Outil("Filaire", "Toutes les arêtes, sans faces.", "filaire", "rendu_filaire"),
+                Outil(
+                    "Lignes cachées",
+                    "Seulement les arêtes visibles, comme sur un dessin technique.",
+                    "cachees",
+                    "rendu_lignes_cachees",
+                ),
             ],
         ),
     ],
@@ -219,11 +232,11 @@ ONGLETS_PAR_TYPE: Final[dict[TypeDocument, list[Onglet]]] = {
 
 # --- Barre d'affichage (haut de la zone 3D, pièce et assemblage) ---
 BARRE_AFFICHAGE: Final[list[Outil]] = [
-    Outil("Isométrique", "Vue isométrique.", "vue_iso"),
-    Outil("Face", "Vue de face.", "vue_face"),
-    Outil("Dessus", "Vue de dessus.", "vue_dessus"),
-    Outil("Droite", "Vue de droite.", "vue_droite"),
-    Outil("Ajuster", "Ajuster la vue au modèle (touche F).", "ajuster_vue"),
+    Outil("Isométrique", "Vue isométrique.", "vue_iso", "vue_isometrique", "Ctrl+7"),
+    Outil("Face", "Vue de face (plan XY).", "vue_face", "vue_face", "Ctrl+1"),
+    Outil("Dessus", "Vue de dessus (plan XZ).", "vue_dessus", "vue_dessus", "Ctrl+5"),
+    Outil("Droite", "Vue de droite (plan YZ).", "vue_droite", "vue_droite", "Ctrl+4"),
+    Outil("Ajuster", "Ajuster la vue au modèle.", "ajuster_vue", "ajuster", "F"),
 ]
 
 # --- Arbre de construction ---
@@ -248,7 +261,10 @@ ETAT_PAR_TYPE: Final[dict[TypeDocument, list[str]]] = {
     TypeDocument.MISE_EN_PLAN: ["Feuille A4 paysage", "Échelle 1:1", ETAT_UNITES],
 }
 ASTUCE_PAR_TYPE: Final[dict[TypeDocument, str]] = {
-    TypeDocument.PIECE: "Astuce : clic molette pour tourner, Ctrl + clic molette pour déplacer.",
+    TypeDocument.PIECE: (
+        "Astuce : clic molette pour tourner, Ctrl + clic molette pour déplacer, "
+        "clic sur le cube pour changer de vue."
+    ),
     TypeDocument.ASSEMBLAGE: "Astuce : insérez d'abord une pièce, elle sera fixée à l'origine.",
     TypeDocument.MISE_EN_PLAN: "Astuce : commencez par « Vues standard » pour placer les vues.",
 }
